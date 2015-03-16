@@ -43,19 +43,25 @@ typedef uint16_t rbit_t;
  * Create a new set.
  */
 
-rbit_t *rbit_new();
+rbit_t *rbit_new(void);
 
 /**
  * Free the specified set.
  */
 
-void rbit_free(rbit_t *rbit);
+void rbit_free(rbit_t *set);
 
 /**
  * Get the cardinality of the set.
  */
 
-uint16_t rbit_cardinality(const rbit_t *rbit);
+uint16_t rbit_cardinality(const rbit_t *set);
+
+/**
+ * Get the length of the set in bytes.
+ */
+
+uint16_t rbit_length(const rbit_t *set);
 
 /**
  * Add an item to the set.
@@ -64,10 +70,16 @@ uint16_t rbit_cardinality(const rbit_t *rbit);
  * when adding an item that is less than or equal to a previously added item
  * is undefined.
  *
- * Return true if the operation was successful and false otherwise.
+ * Returns true if the operation was successful and false otherwise.
  */
 
-bool rbit_add(rbit_t *rbit, uint16_t item);
+bool rbit_add(rbit_t *set, uint16_t item);
+
+/**
+ * Check if two sets are equal.
+ */
+
+bool rbit_equals(const rbit_t *set, const rbit_t *comparison);
 
 /**
  * Create a new set with the specified items.
@@ -76,7 +88,7 @@ bool rbit_add(rbit_t *rbit, uint16_t item);
  * undefined otherwise.
  */
 
-rbit_t *rbit_new_items(size_t count, ...);
+rbit_t *rbit_new_items(uint16_t count, ...);
 
 #ifdef __cplusplus
 }

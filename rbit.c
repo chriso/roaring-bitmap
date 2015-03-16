@@ -1,14 +1,15 @@
 #include <stdlib.h>
-#include <assert.h>
+#include <string.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #include "rbit.h"
 
 #define RBIT_INITIAL_SIZE 16
 
-static void *rbit_to_malloc_ptr(rbit_t *rbit)
+static void *rbit_to_malloc_ptr(rbit_t *set)
 {
-    return rbit - 1;
+    return set - 1;
 }
 
 static void *rbit_from_malloc_ptr(void *ptr)
@@ -16,31 +17,41 @@ static void *rbit_from_malloc_ptr(void *ptr)
     return (uint16_t *)ptr + 1;
 }
 
-rbit_t *rbit_new()
+static rbit_t *rbit_new_size(uint16_t size)
 {
-    uint16_t *ptr = calloc(2 + RBIT_INITIAL_SIZE, sizeof(uint16_t));
+    uint16_t *ptr = calloc(2 + size, sizeof(uint16_t));
     *ptr = RBIT_INITIAL_SIZE;
     return rbit_from_malloc_ptr(ptr);
 }
 
-void rbit_free(uint16_t *rbit)
+rbit_t *rbit_new()
 {
-    free(rbit_to_malloc_ptr(rbit));
+    return rbit_new_size(RBIT_INITIAL_SIZE);
 }
 
-static uint16_t rbit_size(const rbit_t *rbit)
+void rbit_free(uint16_t *set)
 {
-    return rbit[-1];
+    free(rbit_to_malloc_ptr(set));
 }
 
-uint16_t rbit_cardinality(const rbit_t *rbit)
+static uint16_t rbit_size(const rbit_t *set)
 {
-    return rbit[0];
+    return set[-1];
+}
+
+uint16_t rbit_cardinality(const rbit_t *set)
+{
+    return set[0];
+}
+
+static uint16_t rbit_length_for(uint16_t cardinality)
+{
+    return sizeof(uint16_t) * cardinality;
 }
 
 uint16_t rbit_length(const rbit_t *rbit)
 {
-    return sizeof(uint16_t) * rbit_cardinality(rbit);
+    return sizeof(uint16_t) + rbit_length_for(*rbit);
 }
 
 bool rbit_add(rbit_t *rbit, uint16_t item)
@@ -52,15 +63,23 @@ bool rbit_add(rbit_t *rbit, uint16_t item)
     return true;
 }
 
-rbit_t *rbit_new_items(size_t count, ...)
+bool rbit_equals(const rbit_t *rbit, const rbit_t *comparison)
 {
-    rbit_t *rbit = rbit_new();
+    if (*rbit != *comparison)
+        return false;
+    uint16_t length = rbit_length_for(*rbit);
+    return !memcmp(rbit + 1, comparison + 1, length);
+}
+
+rbit_t *rbit_new_items(uint16_t count, ...)
+{
+    rbit_t *rbit = rbit_new_size(count);
     if (!rbit)
         return NULL;
     va_list items;
     va_start(items, count);
     for (size_t i = 0; i < count; i++)
-        if (!rbit_add(rbit, va_arg(items, unsigned)))
+        if (!rbit_add(rbit, (uint16_t)va_arg(items, unsigned)))
             goto error;
     va_end(items);
     return rbit;
