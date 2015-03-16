@@ -62,11 +62,21 @@ static void test_buffer_resizing()
 {
     rbit_t *set = rbit_new();
     assert(set);
-    assert(rbit_cardinality(set) == 0);
-    assert(rbit_length(set) == sizeof(uint16_t));
     for (uint16_t i = 0; i < 1000; i++)
         assert(rbit_add(set, i));
     assert(rbit_cardinality(set) == 1000);
+    rbit_free(set);
+}
+
+static void test_array_to_bitset()
+{
+    rbit_t *set = rbit_new();
+    assert(set);
+    for (uint16_t i = 0; i < 32768; i++)
+        assert(rbit_add(set, i * 2));
+    assert(rbit_cardinality(set) == 32768);
+    for (uint16_t i = 0; i < 4096; i++)
+        assert(set->buffer[i + 1] == 0x5555); // 01010101 01010101
     rbit_free(set);
 }
 
@@ -76,5 +86,6 @@ int main()
     test_new_items();
     test_equals();
     test_buffer_resizing();
+    test_array_to_bitset();
     return 0;
 }

@@ -8,7 +8,7 @@
 #define RBIT_INITIAL_SIZE 16
 #define RBIT_GROWTH_FACTOR 8
 
-#define RBIT_CUTOFF (1 << 12)
+#define RBIT_LOW_CUTOFF (1U << 12)
 
 static rbit_t *rbit_new_size(uint16_t size)
 {
@@ -54,8 +54,8 @@ uint16_t rbit_length(const rbit_t *set)
 static bool rbit_grow(rbit_t *set)
 {
     size_t new_size = set->size * 2;
-    if (new_size > RBIT_CUTOFF)
-        new_size = RBIT_CUTOFF;
+    if (new_size > RBIT_LOW_CUTOFF)
+        new_size = RBIT_LOW_CUTOFF;
     uint16_t *buffer = realloc(set->buffer, sizeof(uint16_t) * (1 + new_size));
     if (!buffer)
         return false;
@@ -64,14 +64,52 @@ static bool rbit_grow(rbit_t *set)
     return true;
 }
 
-bool rbit_add(rbit_t *set, uint16_t item)
+static bool rbit_array_to_bitset(rbit_t *set)
+{
+    uint16_t *bitset = calloc(RBIT_LOW_CUTOFF, sizeof(uint16_t));
+    if (!bitset)
+        return false;
+    for (size_t i = 1; i <= RBIT_LOW_CUTOFF; i++)
+        bitset[set->buffer[i] / 16] |= 1U << (set->buffer[i] % 16);
+    memcpy(set->buffer + 1, bitset, RBIT_LOW_CUTOFF * sizeof(uint16_t));
+    free(bitset);
+    return true;
+}
+
+static bool rbit_add_array(rbit_t *set, uint16_t item)
 {
     uint16_t cardinality = *set->buffer;
     if (cardinality && set->buffer[cardinality] >= item)
         return false;
-    if (cardinality == set->size && set->size < RBIT_CUTOFF && !rbit_grow(set))
+    if (cardinality == set->size && !rbit_grow(set))
         return false;
     set->buffer[cardinality + 1] = item;
+    return true;
+}
+
+static bool rbit_add_bitset(rbit_t *set, uint16_t item)
+{
+    uint16_t offset = item / 16;
+    uint16_t bit = item % 16;
+    if (set->buffer[offset + 1] & (1U << bit))
+        return false;
+    set->buffer[offset + 1] |= 1U << bit;
+    return true;
+}
+
+bool rbit_add(rbit_t *set, uint16_t item)
+{
+    uint16_t cardinality = *set->buffer;
+    if (cardinality == RBIT_LOW_CUTOFF)
+        if (!rbit_array_to_bitset(set))
+            return false;
+    if (cardinality < RBIT_LOW_CUTOFF) {
+        if (!rbit_add_array(set, item))
+            return false;
+    } else {
+        if (!rbit_add_bitset(set, item))
+            return false;
+    }
     *set->buffer = cardinality + 1;
     return true;
 }
