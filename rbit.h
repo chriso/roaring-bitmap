@@ -35,6 +35,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef uint16_t rbit_t;
 
@@ -67,6 +68,15 @@ uint16_t rbit_cardinality(const rbit_t *rbit);
  */
 
 bool rbit_add(rbit_t *rbit, uint16_t item);
+
+/**
+ * Create a new set with the specified items.
+ *
+ * The items must be sorted and must not contain duplicates. Behavior is
+ * undefined otherwise.
+ */
+
+rbit_t *rbit_new_items(size_t count, ...);
 
 #ifdef __cplusplus
 }

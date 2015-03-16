@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <stdarg.h>
 
 #include "rbit.h"
 
@@ -49,4 +50,21 @@ bool rbit_add(rbit_t *rbit, uint16_t item)
     rbit[cardinality + 1] = item;
     *rbit = cardinality + 1;
     return true;
+}
+
+rbit_t *rbit_new_items(size_t count, ...)
+{
+    rbit_t *rbit = rbit_new();
+    if (!rbit)
+        return NULL;
+    va_list items;
+    va_start(items, count);
+    for (size_t i = 0; i < count; i++)
+        if (!rbit_add(rbit, va_arg(items, unsigned)))
+            goto error;
+    va_end(items);
+    return rbit;
+error:
+    rbit_free(rbit);
+    return NULL;
 }
