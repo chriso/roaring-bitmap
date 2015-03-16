@@ -5,3 +5,6 @@ tests: rbit.o tests.o
 
 check: tests
 	./tests
+
+clean:
+	rm -f *.o tests
