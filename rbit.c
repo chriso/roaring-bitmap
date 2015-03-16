@@ -6,22 +6,23 @@
 #include "rbit.h"
 
 #define RBIT_INITIAL_SIZE 16
+#define RBIT_GROWTH_FACTOR 8
 
-static void *rbit_to_malloc_ptr(rbit_t *set)
-{
-    return set - 1;
-}
-
-static void *rbit_from_malloc_ptr(void *ptr)
-{
-    return (uint16_t *)ptr + 1;
-}
+#define RBIT_CUTOFF (1 << 12)
 
 static rbit_t *rbit_new_size(uint16_t size)
 {
-    uint16_t *ptr = calloc(2 + size, sizeof(uint16_t));
-    *ptr = RBIT_INITIAL_SIZE;
-    return rbit_from_malloc_ptr(ptr);
+    rbit_t *set = malloc(sizeof(rbit_t));
+    if (!set)
+        return NULL;
+    set->buffer = malloc(sizeof(uint16_t) * (1 + size));
+    if (!set->buffer) {
+        free(set);
+        return NULL;
+    }
+    set->size = size;
+    *set->buffer = 0;
+    return set;
 }
 
 rbit_t *rbit_new()
@@ -29,19 +30,15 @@ rbit_t *rbit_new()
     return rbit_new_size(RBIT_INITIAL_SIZE);
 }
 
-void rbit_free(uint16_t *set)
+void rbit_free(rbit_t *set)
 {
-    free(rbit_to_malloc_ptr(set));
-}
-
-static uint16_t rbit_size(const rbit_t *set)
-{
-    return set[-1];
+    free(set->buffer);
+    free(set);
 }
 
 uint16_t rbit_cardinality(const rbit_t *set)
 {
-    return set[0];
+    return *set->buffer;
 }
 
 static uint16_t rbit_length_for(uint16_t cardinality)
@@ -49,41 +46,58 @@ static uint16_t rbit_length_for(uint16_t cardinality)
     return sizeof(uint16_t) * cardinality;
 }
 
-uint16_t rbit_length(const rbit_t *rbit)
+uint16_t rbit_length(const rbit_t *set)
 {
-    return sizeof(uint16_t) + rbit_length_for(*rbit);
+    return sizeof(uint16_t) + rbit_length_for(*set->buffer);
 }
 
-bool rbit_add(rbit_t *rbit, uint16_t item)
+static bool rbit_grow(rbit_t *set)
 {
-    uint16_t cardinality = *rbit;
-    assert(!cardinality || rbit[cardinality] < item);
-    rbit[cardinality + 1] = item;
-    *rbit = cardinality + 1;
+    size_t new_size = set->size * 2;
+    if (new_size > RBIT_CUTOFF)
+        new_size = RBIT_CUTOFF;
+    uint16_t *buffer = realloc(set->buffer, sizeof(uint16_t) * (1 + new_size));
+    if (!buffer)
+        return false;
+    set->buffer = buffer;
+    set->size = new_size;
     return true;
 }
 
-bool rbit_equals(const rbit_t *rbit, const rbit_t *comparison)
+bool rbit_add(rbit_t *set, uint16_t item)
 {
-    if (*rbit != *comparison)
+    uint16_t cardinality = *set->buffer;
+    if (cardinality && set->buffer[cardinality] >= item)
         return false;
-    uint16_t length = rbit_length_for(*rbit);
-    return !memcmp(rbit + 1, comparison + 1, length);
+    if (cardinality == set->size && set->size < RBIT_CUTOFF && !rbit_grow(set))
+        return false;
+    set->buffer[cardinality + 1] = item;
+    *set->buffer = cardinality + 1;
+    return true;
+}
+
+bool rbit_equals(const rbit_t *set, const rbit_t *comparison)
+{
+    uint16_t cardinality = *set->buffer;
+    if (cardinality != *comparison->buffer)
+        return false;
+    uint16_t length = rbit_length_for(cardinality);
+    return !memcmp(set->buffer + 1, comparison->buffer + 1, length);
 }
 
 rbit_t *rbit_new_items(uint16_t count, ...)
 {
-    rbit_t *rbit = rbit_new_size(count);
-    if (!rbit)
+    rbit_t *set = rbit_new_size(count);
+    if (!set)
         return NULL;
     va_list items;
     va_start(items, count);
     for (size_t i = 0; i < count; i++)
-        if (!rbit_add(rbit, (uint16_t)va_arg(items, unsigned)))
+        if (!rbit_add(set, (uint16_t)va_arg(items, unsigned)))
             goto error;
     va_end(items);
-    return rbit;
+    return set;
 error:
-    rbit_free(rbit);
+    rbit_free(set);
     return NULL;
 }

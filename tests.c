@@ -23,7 +23,10 @@ static void test_new_items()
     assert(set);
     assert(rbit_cardinality(set) == 3);
     assert(rbit_length(set) == sizeof(uint16_t) * (1 + 3));
-    assert(set[1] == 1000 && set[2] == 2000 && set[3] == 3000);
+    assert(set->buffer[0] == 3 &&
+           set->buffer[1] == 1000 &&
+           set->buffer[2] == 2000 &&
+           set->buffer[3] == 3000);
     rbit_free(set);
 }
 
@@ -55,10 +58,23 @@ static void test_equals()
     rbit_free(set);
 }
 
+static void test_buffer_resizing()
+{
+    rbit_t *set = rbit_new();
+    assert(set);
+    assert(rbit_cardinality(set) == 0);
+    assert(rbit_length(set) == sizeof(uint16_t));
+    for (uint16_t i = 0; i < 1000; i++)
+        assert(rbit_add(set, i));
+    assert(rbit_cardinality(set) == 1000);
+    rbit_free(set);
+}
+
 int main()
 {
     test_new();
     test_new_items();
     test_equals();
+    test_buffer_resizing();
     return 0;
 }

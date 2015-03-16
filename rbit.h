@@ -1,14 +1,22 @@
 #ifndef RBIT_H_
 #define RBIT_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+
 /**
  * A C implementation of Daniel Lemire (et. al.)'s Roaring Bitmaps.
  *
- * The set is layed in memory as follows:
+ * The items are layed in memory as follows:
  *
- *     malloc ptr     rbit ptr
- *     v              v
- *     |     size     |  cardinality  |   items...  |
+ *     buffer ptr
+ *     v
+ *     |  cardinality  |   items...  |
  *
  * The set items are represented by either a sorted array of 16-bit unsigned
  * ints, or a bitset, whichever uses the least amount of space. The cut-off
@@ -29,15 +37,10 @@
  *     http://arxiv.org/pdf/1402.6407v4.pdf
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-
-typedef uint16_t rbit_t;
+typedef struct {
+    uint16_t *buffer;
+    uint16_t size;
+} rbit_t;
 
 /**
  * Create a new set.
