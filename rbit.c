@@ -24,33 +24,46 @@ unsigned rbit_cardinality(const rbit_t *set)
     return cardinality;
 }
 
-static rbit_t *rbit_new_size(unsigned size)
+rbit_t *rbit_import(const void *buffer, unsigned length)
 {
     rbit_t *set = malloc(sizeof(rbit_t));
     if (!set)
         return NULL;
-    if (!size)
-        size += 1;
+    unsigned size = length ? length : 1;
     set->buffer = malloc(sizeof(uint16_t) * (1 + size));
     if (!set->buffer) {
         free(set);
         return NULL;
     }
     set->size = size;
-    set->buffer[0] = RBIT_MAGIC;
-    set->buffer[1] = 0xFFFF;
+    if (buffer && length) {
+        memcpy(set->buffer, buffer, length);
+    } else {
+        set->buffer[0] = RBIT_MAGIC;
+        set->buffer[1] = 0xFFFF;
+    }
     return set;
 }
 
 rbit_t *rbit_new()
 {
-    return rbit_new_size(RBIT_INITIAL_SIZE);
+    return rbit_import(NULL, RBIT_INITIAL_SIZE);
 }
 
 void rbit_free(rbit_t *set)
 {
     free(set->buffer);
     free(set);
+}
+
+const void *rbit_export(const rbit_t *set)
+{
+    return set->buffer;
+}
+
+rbit_t *rbit_copy(const rbit_t *set)
+{
+    return rbit_import(rbit_export(set), rbit_length(set));
 }
 
 static unsigned rbit_length_for(unsigned cardinality)
@@ -188,7 +201,7 @@ bool rbit_equals(const rbit_t *set, const rbit_t *comparison)
 
 rbit_t *rbit_new_items(unsigned count, ...)
 {
-    rbit_t *set = rbit_new_size(count);
+    rbit_t *set = rbit_import(NULL, count);
     if (!set)
         return NULL;
     va_list items;

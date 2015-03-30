@@ -58,6 +58,49 @@ static void test_equals()
     rbit_free(set);
 }
 
+static void test_import_export()
+{
+    rbit_t *set = rbit_new_items(3, 1, 2, 3);
+    assert(set);
+    assert(rbit_export(set) == set->buffer);
+    assert(rbit_length(set) == 4 * sizeof(uint16_t));
+
+    rbit_t *copy = rbit_import(rbit_export(set), rbit_length(set));
+    assert(copy);
+
+    assert(rbit_equals(set, copy));
+
+    rbit_free(set);
+    rbit_free(copy);
+}
+
+static void test_copy()
+{
+    rbit_t *set = rbit_new();
+    assert(set);
+    rbit_t *copy = rbit_copy(set);
+    assert(copy);
+
+    assert(rbit_equals(set, copy));
+    assert(rbit_cardinality(set) == rbit_cardinality(copy));
+    assert(rbit_length(set) == rbit_length(copy));
+
+    rbit_free(set);
+    rbit_free(copy);
+
+    set = rbit_new_items(5, 1, 2, 3, 4, 5);
+    assert(set);
+    copy = rbit_copy(set);
+    assert(copy);
+
+    assert(rbit_equals(set, copy));
+    assert(rbit_cardinality(set) == rbit_cardinality(copy));
+    assert(rbit_length(set) == rbit_length(copy));
+
+    rbit_free(set);
+    rbit_free(copy);
+}
+
 static void test_buffer_resizing()
 {
     rbit_t *set = rbit_new();
@@ -121,6 +164,8 @@ int main()
     test_new();
     test_new_items();
     test_equals();
+    test_import_export();
+    test_copy();
     test_buffer_resizing();
     test_array_to_bitset();
     test_bitset_to_inverted_array();
