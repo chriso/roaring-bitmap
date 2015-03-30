@@ -5,29 +5,30 @@
 
 #include "rbit.h"
 
-#define RBIT_INITIAL_SIZE 8
-#define RBIT_GROWTH_FACTOR 8
+const static unsigned default_size = 8;
+const static unsigned growth_factor = 2;
 
-#define RBIT_MAX (1 << 16)
-#define RBIT_LOW_CUTOFF (1 << 12)
-#define RBIT_HIGH_CUTOFF (uint16_t)(RBIT_MAX - RBIT_LOW_CUTOFF)
+const static unsigned max_items = 1 << 16;
+const static unsigned low_cutoff = 1 << 12;
+const static unsigned high_cutoff = max_items - low_cutoff;
 
-#define RBIT_MAGIC (RBIT_HIGH_CUTOFF + 1)
+const static unsigned empty_marker_a = high_cutoff + 1;
+const static unsigned empty_marker_b = max_items - 1;
 
 unsigned rbit_cardinality(const rbit_t *set)
 {
     unsigned cardinality = set->buffer[0];
     if (!cardinality)
-        return RBIT_MAX;
-    if (cardinality == RBIT_MAGIC && set->buffer[1] == 0xFFFF)
+        return max_items;
+    if (cardinality == empty_marker_a && set->buffer[1] == empty_marker_b)
         return 0;
     return cardinality;
 }
 
 void rbit_truncate(rbit_t *set)
 {
-    set->buffer[0] = RBIT_MAGIC;
-    set->buffer[1] = 0xFFFF;
+    set->buffer[0] = empty_marker_a;
+    set->buffer[1] = empty_marker_b;
 }
 
 rbit_t *rbit_import(const void *buffer, unsigned length)
@@ -36,8 +37,8 @@ rbit_t *rbit_import(const void *buffer, unsigned length)
     if (!set)
         return NULL;
     unsigned size = length ? length : 1;
-    if (size > RBIT_LOW_CUTOFF)
-        size = RBIT_LOW_CUTOFF;
+    if (size > low_cutoff)
+        size = low_cutoff;
     set->buffer = malloc(sizeof(uint16_t) * (1 + size));
     if (!set->buffer) {
         free(set);
@@ -53,7 +54,7 @@ rbit_t *rbit_import(const void *buffer, unsigned length)
 
 rbit_t *rbit_new()
 {
-    return rbit_import(NULL, RBIT_INITIAL_SIZE);
+    return rbit_import(NULL, default_size);
 }
 
 void rbit_free(rbit_t *set)
@@ -76,10 +77,10 @@ static unsigned rbit_length_for(unsigned cardinality)
 {
     if (!cardinality)
         cardinality = 1;
-    else if (cardinality >= RBIT_HIGH_CUTOFF)
-        cardinality = RBIT_MAX - cardinality;
-    else if (cardinality > RBIT_LOW_CUTOFF)
-        cardinality = RBIT_LOW_CUTOFF;
+    else if (cardinality >= high_cutoff)
+        cardinality = max_items - cardinality;
+    else if (cardinality > low_cutoff)
+        cardinality = low_cutoff;
     return sizeof(uint16_t) * cardinality;
 }
 
@@ -90,9 +91,9 @@ unsigned rbit_length(const rbit_t *set)
 
 static bool rbit_grow(rbit_t *set)
 {
-    unsigned new_size = set->size * 2;
-    if (new_size > RBIT_LOW_CUTOFF)
-        new_size = RBIT_LOW_CUTOFF;
+    unsigned new_size = set->size * growth_factor;
+    if (new_size > low_cutoff)
+        new_size = low_cutoff;
     uint16_t *buffer = realloc(set->buffer, sizeof(uint16_t) * (1 + new_size));
     if (!buffer)
         return false;
@@ -103,28 +104,28 @@ static bool rbit_grow(rbit_t *set)
 
 static bool rbit_array_to_bitset(rbit_t *set)
 {
-    uint16_t *bitset = calloc(RBIT_LOW_CUTOFF, sizeof(uint16_t));
+    uint16_t *bitset = calloc(low_cutoff, sizeof(uint16_t));
     uint16_t *array = set->buffer + 1;
     if (!bitset)
         return false;
-    for (unsigned i = 0; i < RBIT_LOW_CUTOFF; i++)
+    for (unsigned i = 0; i < low_cutoff; i++)
         bitset[array[i] >> 4] |= 1 << (array[i] & 0xF);
-    memcpy(array, bitset, RBIT_LOW_CUTOFF * sizeof(uint16_t));
+    memcpy(array, bitset, low_cutoff * sizeof(uint16_t));
     free(bitset);
     return true;
 }
 
 static bool rbit_bitset_to_inverted_array(rbit_t *set)
 {
-    uint16_t *array = calloc(RBIT_LOW_CUTOFF, sizeof(uint16_t));
+    uint16_t *array = calloc(low_cutoff, sizeof(uint16_t));
     if (!array)
         return false;
     uint16_t *ptr = array, *bitset = set->buffer + 1;
-    for (unsigned bit = 0, i = 0; i < RBIT_LOW_CUTOFF; i++)
+    for (unsigned bit = 0, i = 0; i < low_cutoff; i++)
         for (unsigned j = 0; j < 16; j++, bit++)
             if (!(bitset[i] & (1 << j)))
                 *ptr++ = bit;
-    memcpy(bitset, array, RBIT_LOW_CUTOFF * sizeof(uint16_t));
+    memcpy(bitset, array, low_cutoff * sizeof(uint16_t));
     free(array);
     return true;
 }
@@ -136,7 +137,7 @@ static bool rbit_add_array(rbit_t *set, uint16_t item)
         set->buffer[0] = 0;
     else if (set->buffer[cardinality] >= item)
         return false;
-    if (cardinality == set->size && !rbit_grow(set))
+    else if (cardinality == set->size && !rbit_grow(set))
         return false;
     set->buffer[cardinality + 1] = item;
     return true;
@@ -145,7 +146,7 @@ static bool rbit_add_array(rbit_t *set, uint16_t item)
 static bool rbit_add_bitset(rbit_t *set, uint16_t item)
 {
     unsigned offset = (item >> 4) + 1;
-    uint16_t bit = 1 << (item & 0xF);
+    unsigned bit = 1 << (item & 0xF);
     if (set->buffer[offset] & bit)
         return false;
     set->buffer[offset] |= bit;
@@ -170,24 +171,24 @@ static bool rbit_add_inverted_array(rbit_t *set, uint16_t item)
 bool rbit_add(rbit_t *set, uint16_t item)
 {
     unsigned cardinality = rbit_cardinality(set);
-    if (cardinality == RBIT_MAX)
+    if (cardinality == max_items)
         return false;
-    if (cardinality == RBIT_LOW_CUTOFF) {
-        for (unsigned i = 1; i <= RBIT_LOW_CUTOFF; i++)
+    if (cardinality == low_cutoff) {
+        for (unsigned i = 1; i <= low_cutoff; i++)
             if (set->buffer[i] == item)
                 return false;
         if (!rbit_array_to_bitset(set))
             return false;
-    } else if (cardinality == RBIT_HIGH_CUTOFF) {
+    } else if (cardinality == high_cutoff) {
         if (set->buffer[(item >> 4) + 1] & (1 << (item & 0xF)))
             return false;
         if (!rbit_bitset_to_inverted_array(set))
             return false;
     }
-    if (cardinality < RBIT_LOW_CUTOFF) {
+    if (cardinality < low_cutoff) {
         if (!rbit_add_array(set, item))
             return false;
-    } else if (cardinality >= RBIT_HIGH_CUTOFF) {
+    } else if (cardinality >= high_cutoff) {
         if (!rbit_add_inverted_array(set, item))
             return false;
     } else if (!rbit_add_bitset(set, item))
