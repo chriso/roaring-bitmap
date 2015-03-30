@@ -71,16 +71,19 @@ unsigned rbit_length(const rbit_t *set);
  *
  * The length of the buffer can be obtained with `rbit_length`.
  */
+
 const void *rbit_export(const rbit_t *set);
 
 /**
  * Import a set given a buffer.
  */
+
 rbit_t *rbit_import(const void *buffer, unsigned length);
 
 /**
  * Make a copy of the set.
  */
+
 rbit_t *rbit_copy(const rbit_t *set);
 
 /**
@@ -109,6 +112,11 @@ bool rbit_equals(const rbit_t *set, const rbit_t *comparison);
  */
 
 rbit_t *rbit_new_items(unsigned count, ...);
+
+/**
+ * Truncate the set.
+ */
+void rbit_truncate(rbit_t *set);
 
 #ifdef __cplusplus
 }

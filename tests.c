@@ -101,6 +101,20 @@ static void test_copy()
     rbit_free(copy);
 }
 
+static void test_truncate()
+{
+    rbit_t *set = rbit_new_items(5, 1, 2, 3, 4, 5);
+    assert(set);
+
+    assert(rbit_cardinality(set) == 5);
+
+    rbit_truncate(set);
+
+    assert(rbit_cardinality(set) == 0);
+
+    rbit_free(set);
+}
+
 static void test_buffer_resizing()
 {
     rbit_t *set = rbit_new();
@@ -166,6 +180,7 @@ int main()
     test_equals();
     test_import_export();
     test_copy();
+    test_truncate();
     test_buffer_resizing();
     test_array_to_bitset();
     test_bitset_to_inverted_array();

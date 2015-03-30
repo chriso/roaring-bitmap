@@ -24,24 +24,30 @@ unsigned rbit_cardinality(const rbit_t *set)
     return cardinality;
 }
 
+void rbit_truncate(rbit_t *set)
+{
+    set->buffer[0] = RBIT_MAGIC;
+    set->buffer[1] = 0xFFFF;
+}
+
 rbit_t *rbit_import(const void *buffer, unsigned length)
 {
     rbit_t *set = malloc(sizeof(rbit_t));
     if (!set)
         return NULL;
     unsigned size = length ? length : 1;
+    if (size > RBIT_LOW_CUTOFF)
+        size = RBIT_LOW_CUTOFF;
     set->buffer = malloc(sizeof(uint16_t) * (1 + size));
     if (!set->buffer) {
         free(set);
         return NULL;
     }
     set->size = size;
-    if (buffer && length) {
+    if (buffer && length)
         memcpy(set->buffer, buffer, length);
-    } else {
-        set->buffer[0] = RBIT_MAGIC;
-        set->buffer[1] = 0xFFFF;
-    }
+    else
+        rbit_truncate(set);
     return set;
 }
 
