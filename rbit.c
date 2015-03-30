@@ -9,7 +9,7 @@
 #define RBIT_GROWTH_FACTOR 8
 
 #define RBIT_MAX (1 << 16)
-#define RBIT_LOW_CUTOFF (RBIT_MAX / 8 / sizeof(uint16_t))
+#define RBIT_LOW_CUTOFF (1 << 12)
 #define RBIT_HIGH_CUTOFF (uint16_t)(RBIT_MAX - RBIT_LOW_CUTOFF)
 
 #define RBIT_MAGIC (RBIT_HIGH_CUTOFF + 1)
@@ -108,7 +108,7 @@ static bool rbit_array_to_bitset(rbit_t *set)
     if (!bitset)
         return false;
     for (unsigned i = 0; i < RBIT_LOW_CUTOFF; i++)
-        bitset[array[i] / 16] |= 1U << (array[i] % 16);
+        bitset[array[i] >> 4] |= 1 << (array[i] & 0xF);
     memcpy(array, bitset, RBIT_LOW_CUTOFF * sizeof(uint16_t));
     free(bitset);
     return true;
@@ -122,7 +122,7 @@ static bool rbit_bitset_to_inverted_array(rbit_t *set)
     uint16_t *ptr = array, *bitset = set->buffer + 1;
     for (unsigned bit = 0, i = 0; i < RBIT_LOW_CUTOFF; i++)
         for (unsigned j = 0; j < 16; j++, bit++)
-            if (!(bitset[i] & (1U << j)))
+            if (!(bitset[i] & (1 << j)))
                 *ptr++ = bit;
     memcpy(bitset, array, RBIT_LOW_CUTOFF * sizeof(uint16_t));
     free(array);
@@ -144,8 +144,8 @@ static bool rbit_add_array(rbit_t *set, uint16_t item)
 
 static bool rbit_add_bitset(rbit_t *set, uint16_t item)
 {
-    unsigned offset = item / 16 + 1;
-    uint16_t bit = 1U << (item % 16);
+    unsigned offset = (item >> 4) + 1;
+    uint16_t bit = 1 << (item & 0xF);
     if (set->buffer[offset] & bit)
         return false;
     set->buffer[offset] |= bit;
@@ -161,7 +161,7 @@ static bool rbit_add_inverted_array(rbit_t *set, uint16_t item)
         if (set->buffer[i + 1] > item)
             break;
         memmove(set->buffer + 1 + i, set->buffer + 1 + i + 1,
-                ((1U << 16) - cardinality - i - 1) * sizeof(uint16_t));
+                ((1 << 16) - cardinality - i - 1) * sizeof(uint16_t));
         return true;
     }
     return false;
@@ -179,7 +179,7 @@ bool rbit_add(rbit_t *set, uint16_t item)
         if (!rbit_array_to_bitset(set))
             return false;
     } else if (cardinality == RBIT_HIGH_CUTOFF) {
-        if (set->buffer[item / 16 + 1] & (1U << (item % 16)))
+        if (set->buffer[(item >> 4) + 1] & (1 << (item & 0xF)))
             return false;
         if (!rbit_bitset_to_inverted_array(set))
             return false;
