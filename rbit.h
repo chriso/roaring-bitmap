@@ -61,32 +61,6 @@ void rbit_free(rbit_t *set);
 unsigned rbit_cardinality(const rbit_t *set);
 
 /**
- * Get the length of the set in bytes.
- */
-
-unsigned rbit_length(const rbit_t *set);
-
-/**
- * Export the set.
- *
- * The length of the buffer can be obtained with `rbit_length`.
- */
-
-const void *rbit_export(const rbit_t *set);
-
-/**
- * Import a set given a buffer.
- */
-
-rbit_t *rbit_import(const void *buffer, unsigned length);
-
-/**
- * Make a copy of the set.
- */
-
-rbit_t *rbit_copy(const rbit_t *set);
-
-/**
  * Add an item to the set.
  *
  * The item *must* be greater than the last item added to the set. Behavior
@@ -105,18 +79,36 @@ bool rbit_add(rbit_t *set, uint16_t item);
 bool rbit_equals(const rbit_t *set, const rbit_t *comparison);
 
 /**
- * Create a new set with the specified items.
- *
- * The items must be sorted and must not contain duplicates. Behavior is
- * undefined otherwise.
- */
-
-rbit_t *rbit_new_items(unsigned count, ...);
-
-/**
  * Truncate the set.
  */
+
 void rbit_truncate(rbit_t *set);
+
+/**
+ * Export the set.
+ *
+ * The length of the buffer can be obtained with `rbit_length`.
+ */
+
+const void *rbit_export(const rbit_t *set);
+
+/**
+ * Get the length of the set in bytes.
+ */
+
+unsigned rbit_length(const rbit_t *set);
+
+/**
+ * Import a set given a buffer.
+ */
+
+rbit_t *rbit_import(const void *buffer, unsigned length);
+
+/**
+ * Make a copy of the set.
+ */
+
+rbit_t *rbit_copy(const rbit_t *set);
 
 #ifdef __cplusplus
 }

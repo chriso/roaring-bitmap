@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include <assert.h>
 
 #include "rbit.h"
@@ -204,21 +203,4 @@ bool rbit_equals(const rbit_t *set, const rbit_t *comparison)
         return false;
     unsigned length = rbit_length_for(cardinality);
     return !length || !memcmp(set->buffer + 1, comparison->buffer + 1, length);
-}
-
-rbit_t *rbit_new_items(unsigned count, ...)
-{
-    rbit_t *set = rbit_import(NULL, count);
-    if (!set)
-        return NULL;
-    va_list items;
-    va_start(items, count);
-    for (unsigned i = 0; i < count; i++)
-        if (!rbit_add(set, (uint16_t)va_arg(items, unsigned)))
-            goto error;
-    va_end(items);
-    return set;
-error:
-    rbit_free(set);
-    return NULL;
 }

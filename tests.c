@@ -1,6 +1,24 @@
+#include <stdarg.h>
 #include <assert.h>
 
 #include "rbit.h"
+
+rbit_t *rbit_new_items(unsigned count, ...)
+{
+    rbit_t *set = rbit_import(NULL, count);
+    if (!set)
+        return NULL;
+    va_list items;
+    va_start(items, count);
+    for (unsigned i = 0; i < count; i++)
+        if (!rbit_add(set, (uint16_t)va_arg(items, unsigned)))
+            goto error;
+    va_end(items);
+    return set;
+error:
+    rbit_free(set);
+    return NULL;
+}
 
 static void test_new()
 {
