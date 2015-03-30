@@ -26,12 +26,6 @@ extern "C" {
  * inverted array, where each item represents an unsigned int that is *not* in
  * the set. The cut-off point is 61440 (2^16-2^12) items (8KB).
  *
- * This implementation makes an additional optimization for small sets
- * by collapsing the cardinality field into the first item when the set size
- * is less than 32768 (2^15). The implementation also makes use of SSE
- * instructions where possible, e.g. the PCMPESTRM instruction for fast
- * intersections.
- *
  * See the original paper for more information:
  *
  *     http://arxiv.org/pdf/1402.6407v4.pdf
