@@ -16,13 +16,21 @@ const static unsigned low_cutoff = 1 << 12;
 const static unsigned high_cutoff = max_cardinality - low_cutoff;
 const static unsigned max_item = 0xFFFF;
 
-const static unsigned empty_cardinality = 2;
-const static unsigned empty_first_item = max_item;
-
 static bool INLINE rbit_is_empty(const rbit_t *set)
 {
-    return set->buffer[0] == empty_cardinality &&
-        set->buffer[1] == empty_first_item;
+    // There are 65536 possible items in the set (0-65535 inclusive) and then
+    // the set can be empty, so there are 65537 (2^16+1) possible states. Since
+    // the cardinality is stored in a uint16_t field with only 2^16 possible
+    // states, it's necessary to use some other means of representing either an
+    // empty set or a full set.
+    //
+    // An empty set is represented in 32-bits by storing a cardinality of two
+    // and then storing the maximum item in the first slot. Since the set uses
+    // a sorted array when cardinality < low_cutoff, there is no possible
+    // second item that could be greater than the item in the first slot, i.e.
+    // the state is invalid.
+
+    return set->buffer[0] == 2 && set->buffer[1] == max_item;
 }
 
 unsigned rbit_cardinality(const rbit_t *set)
@@ -36,8 +44,8 @@ unsigned rbit_cardinality(const rbit_t *set)
 
 void rbit_truncate(rbit_t *set)
 {
-    set->buffer[0] = empty_cardinality;
-    set->buffer[1] = empty_first_item;
+    set->buffer[0] = 2;
+    set->buffer[1] = max_item;
 }
 
 rbit_t *rbit_import(const void *buffer, unsigned length)
