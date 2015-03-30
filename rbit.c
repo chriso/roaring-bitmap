@@ -4,6 +4,10 @@
 
 #include "rbit.h"
 
+#define NOINLINE __attribute__ ((noinline))
+#define INLINE __attribute__ ((always_inline))
+#define UNLIKELY(x) __builtin_expect((x), 0)
+
 const static unsigned default_size = 8;
 const static unsigned growth_factor = 2;
 
@@ -72,7 +76,7 @@ rbit_t *rbit_copy(const rbit_t *set)
     return rbit_import(rbit_export(set), rbit_length(set));
 }
 
-static unsigned rbit_length_for(unsigned cardinality)
+static unsigned INLINE rbit_length_for(unsigned cardinality)
 {
     if (!cardinality)
         cardinality = 1;
@@ -88,7 +92,7 @@ unsigned rbit_length(const rbit_t *set)
     return sizeof(uint16_t) + rbit_length_for(rbit_cardinality(set));
 }
 
-static bool rbit_grow(rbit_t *set)
+static bool NOINLINE rbit_grow(rbit_t *set)
 {
     unsigned new_size = set->size * growth_factor;
     if (new_size > low_cutoff)
@@ -101,8 +105,10 @@ static bool rbit_grow(rbit_t *set)
     return true;
 }
 
-static bool rbit_array_to_bitset(rbit_t *set)
+static bool NOINLINE rbit_convert_array_to_bitset(rbit_t *set, uint16_t item)
 {
+    if (set->buffer[low_cutoff] >= item)
+        return false;
     uint16_t *bitset = calloc(low_cutoff, sizeof(uint16_t));
     uint16_t *array = set->buffer + 1;
     if (!bitset)
@@ -114,8 +120,11 @@ static bool rbit_array_to_bitset(rbit_t *set)
     return true;
 }
 
-static bool rbit_bitset_to_inverted_array(rbit_t *set)
+static bool NOINLINE rbit_convert_bitset_to_inverted_array(rbit_t *set,
+                                                           uint16_t item)
 {
+    if (set->buffer[(item >> 4) + 1] & (1 << (item & 0xF)))
+        return false;
     uint16_t *array = calloc(low_cutoff, sizeof(uint16_t));
     if (!array)
         return false;
@@ -129,7 +138,7 @@ static bool rbit_bitset_to_inverted_array(rbit_t *set)
     return true;
 }
 
-static bool rbit_add_array(rbit_t *set, uint16_t item)
+static bool INLINE rbit_add_array(rbit_t *set, uint16_t item)
 {
     unsigned cardinality = rbit_cardinality(set);
     if (!cardinality)
@@ -142,7 +151,7 @@ static bool rbit_add_array(rbit_t *set, uint16_t item)
     return true;
 }
 
-static bool rbit_add_bitset(rbit_t *set, uint16_t item)
+static bool INLINE rbit_add_bitset(rbit_t *set, uint16_t item)
 {
     unsigned offset = (item >> 4) + 1;
     unsigned bit = 1 << (item & 0xF);
@@ -152,16 +161,17 @@ static bool rbit_add_bitset(rbit_t *set, uint16_t item)
     return true;
 }
 
-static bool rbit_add_inverted_array(rbit_t *set, uint16_t item)
+static bool INLINE rbit_add_inverted_array(rbit_t *set, uint16_t item)
 {
-    unsigned cardinality = rbit_cardinality(set);
-    for (unsigned i = 0; i < cardinality; i++) {
-        if (set->buffer[i + 1] < item)
+    unsigned cardinality = *set->buffer;
+    for (unsigned i = 1; i <= cardinality; i++) {
+        if (set->buffer[i] < item)
             continue;
-        if (set->buffer[i + 1] > item)
+        if (set->buffer[i] > item)
             break;
-        memmove(set->buffer + 1 + i, set->buffer + 1 + i + 1,
-                ((1 << 16) - cardinality - i - 1) * sizeof(uint16_t));
+        memmove(set->buffer + i,
+                set->buffer + i + 1,
+                (max_items - cardinality - i) * sizeof(uint16_t));
         return true;
     }
     return false;
@@ -170,20 +180,19 @@ static bool rbit_add_inverted_array(rbit_t *set, uint16_t item)
 bool rbit_add(rbit_t *set, uint16_t item)
 {
     unsigned cardinality = rbit_cardinality(set);
-    if (cardinality == max_items)
+    if (UNLIKELY(cardinality == max_items))
         return false;
-    if (cardinality == low_cutoff) {
-        for (unsigned i = 1; i <= low_cutoff; i++)
-            if (set->buffer[i] == item)
-                return false;
-        if (!rbit_array_to_bitset(set))
+
+    // convert the structure if necessary
+    if (UNLIKELY(cardinality == low_cutoff)) {
+        if (!rbit_convert_array_to_bitset(set, item))
             return false;
-    } else if (cardinality == high_cutoff) {
-        if (set->buffer[(item >> 4) + 1] & (1 << (item & 0xF)))
-            return false;
-        if (!rbit_bitset_to_inverted_array(set))
+    } else if (UNLIKELY(cardinality == high_cutoff)) {
+        if (!rbit_convert_bitset_to_inverted_array(set, item))
             return false;
     }
+
+    // add the item
     if (cardinality < low_cutoff) {
         if (!rbit_add_array(set, item))
             return false;
@@ -192,6 +201,8 @@ bool rbit_add(rbit_t *set, uint16_t item)
             return false;
     } else if (!rbit_add_bitset(set, item))
         return false;
+
+    // increment cardinality
     *set->buffer += 1;
     return true;
 }
