@@ -39,7 +39,7 @@ extern "C" {
 
 typedef struct {
     uint16_t *buffer;
-    uint16_t size;
+    unsigned size;
 } rbit_t;
 
 /**
@@ -58,13 +58,13 @@ void rbit_free(rbit_t *set);
  * Get the cardinality of the set.
  */
 
-uint16_t rbit_cardinality(const rbit_t *set);
+unsigned rbit_cardinality(const rbit_t *set);
 
 /**
  * Get the length of the set in bytes.
  */
 
-uint16_t rbit_length(const rbit_t *set);
+unsigned rbit_length(const rbit_t *set);
 
 /**
  * Add an item to the set.
@@ -91,7 +91,7 @@ bool rbit_equals(const rbit_t *set, const rbit_t *comparison);
  * undefined otherwise.
  */
 
-rbit_t *rbit_new_items(uint16_t count, ...);
+rbit_t *rbit_new_items(unsigned count, ...);
 
 #ifdef __cplusplus
 }
