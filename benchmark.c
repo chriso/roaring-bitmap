@@ -11,33 +11,54 @@
 
 const int times = 2048;
 
+uint64_t nanoseconds()
+{
+#ifdef __MACH__
+    return mach_absolute_time();
+#endif
+}
+
+#define BENCH_START \
+    { \
+        uint64_t start, elapsed, best_time = -1; \
+        for (int i = 0; i < times; i++) { \
+            start = nanoseconds();
+
+#define BENCH_END(info) \
+            elapsed = nanoseconds() - start; \
+            if (elapsed < best_time) \
+                best_time = elapsed; \
+        } \
+        printf(info ": %llu ns\n", best_time); \
+    }
+
 int main()
 {
     rbit_t *set = rbit_import(NULL, 4096);
     assert(set);
 
-    uint64_t best_time = -1;
+    BENCH_START
+    rbit_truncate(set);
+    for (unsigned i = 0; i < 65536; i++)
+        assert(rbit_add(set, i));
+    assert(rbit_cardinality(set) == 65536);
+    BENCH_END("Add ascending")
 
-    for (int i = 0; i < times; i++) {
+    BENCH_START
+    rbit_truncate(set);
+    for (int i = 65535; i >= 0; i--)
+        assert(rbit_add(set, i));
+    assert(rbit_cardinality(set) == 65536);
+    BENCH_END("Add descending")
 
-#ifdef __MACH__
-        uint64_t start = mach_absolute_time();
-#endif
-
-        rbit_truncate(set);
-
-        for (unsigned i = 0; i < 65536; i++)
-            rbit_add(set, i);
-
-#ifdef __MACH__
-        uint64_t elapsed = mach_absolute_time() - start;
-#endif
-
-        if (elapsed < best_time)
-            best_time = elapsed;
-    }
-
-    printf("%llu\n", best_time);
+    BENCH_START
+    rbit_truncate(set);
+    for (unsigned i = 0; i < 32768; i++)
+        assert(rbit_add(set, i));
+    for (unsigned i = 65535; i >= 32768; i--)
+        assert(rbit_add(set, i));
+    assert(rbit_cardinality(set) == 65536);
+    BENCH_END("Add optimal")
 
     return 0;
 }

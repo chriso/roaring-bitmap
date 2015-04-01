@@ -140,8 +140,6 @@ static void test_buffer_resizing()
     for (uint16_t i = 0; i < 1000; i++)
         assert(rbit_add(set, i));
     assert(rbit_cardinality(set) == 1000);
-    for (uint16_t i = 0; i < 1000; i++)
-        assert(!rbit_add(set, i));
     rbit_free(set);
 }
 
@@ -154,8 +152,6 @@ static void test_array_to_bitset()
     assert(rbit_cardinality(set) == 32768);
     for (uint16_t i = 0; i < 4096; i++)
         assert(set->buffer[i + 1] == 0x5555); // 0101010101010101
-    for (uint16_t i = 0; i < 32768; i++)
-        assert(!rbit_add(set, i * 2));
     rbit_free(set);
 }
 
@@ -168,19 +164,59 @@ static void test_bitset_to_inverted_array()
     assert(rbit_cardinality(set) == 61441);
     for (uint16_t i = 0; i < 4095; i++)
         assert(set->buffer[i + 1] == 61441 + i);
-    for (uint16_t i = 0; i <= 61440; i++)
-        assert(!rbit_add(set, i));
     rbit_free(set);
 }
 
-static void test_add_full_set()
+static void test_add_ascending()
 {
     rbit_t *set = rbit_new();
     rbit_t *comparison = rbit_new();
     assert(set && comparison);
     for (unsigned i = 0; i < 65536; i++) {
         assert(rbit_add(set, i));
-        assert(!rbit_add(set, i));
+        assert(rbit_add(set, i));
+        assert(rbit_add(comparison, i));
+        assert(rbit_equals(set, comparison));
+    }
+    assert(rbit_cardinality(set) == 65536);
+    assert(rbit_length(set) == sizeof(uint16_t));
+    assert(set->buffer[0] == 0);
+    rbit_free(set);
+    rbit_free(comparison);
+}
+
+static void test_add_descending()
+{
+    rbit_t *set = rbit_new();
+    rbit_t *comparison = rbit_new();
+    assert(set && comparison);
+    for (int i = 65535; i >= 0; i--) {
+        assert(rbit_add(set, i));
+        assert(rbit_add(set, i));
+        assert(rbit_add(comparison, i));
+        assert(rbit_equals(set, comparison));
+    }
+    assert(rbit_cardinality(set) == 65536);
+    assert(rbit_length(set) == sizeof(uint16_t));
+    assert(set->buffer[0] == 0);
+    rbit_free(set);
+    rbit_free(comparison);
+}
+
+static void test_add_optimal()
+{
+    rbit_t *set = rbit_new();
+    rbit_t *comparison = rbit_new();
+    assert(set && comparison);
+    for (unsigned i = 0; i < 32768; i++) {
+        assert(rbit_add(set, i));
+        assert(rbit_add(set, i));
+        assert(rbit_add(comparison, i));
+        assert(rbit_equals(set, comparison));
+    }
+    for (unsigned i = 65535; i >= 32768; i--) {
+        assert(rbit_add(set, i));
+        assert(rbit_add(set, i));
         assert(rbit_add(comparison, i));
         assert(rbit_equals(set, comparison));
     }
@@ -202,6 +238,8 @@ int main()
     test_buffer_resizing();
     test_array_to_bitset();
     test_bitset_to_inverted_array();
-    test_add_full_set();
+    test_add_ascending();
+    test_add_descending();
+    test_add_optimal();
     return 0;
 }

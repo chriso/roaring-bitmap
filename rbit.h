@@ -57,10 +57,6 @@ unsigned rbit_cardinality(const rbit_t *set);
 /**
  * Add an item to the set.
  *
- * The item *must* be greater than the last item added to the set. Behavior
- * when adding an item that is less than or equal to a previously added item
- * is undefined.
- *
  * Returns true if the operation was successful and false otherwise.
  */
 
