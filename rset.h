@@ -75,6 +75,14 @@ bool rset_contains(const rset_t *set, uint16_t item);
 bool rset_equals(const rset_t *set, const rset_t *comparison);
 
 /**
+ * Invert the set and place the result in the `result` set.
+ *
+ * Returns true if the operation was successful and false otherwise.
+ */
+
+bool rset_invert(const rset_t *set, rset_t *result);
+
+/**
  * Truncate the set.
  */
 

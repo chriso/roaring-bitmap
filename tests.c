@@ -239,6 +239,54 @@ static void test_contains()
     rset_free(set);
 }
 
+static void test_invert()
+{
+    rset_t *set = rset_new();
+    assert(set);
+    for (unsigned i = 4; i < 65536; i++)
+        assert(rset_add(set, i));
+    rset_t *inverted = rset_new();
+    assert(inverted);
+    assert(rset_invert(set, inverted));
+    rset_t *expected = rset_new_items(4, 0, 1, 2, 3);
+    assert(expected);
+    assert(rset_equals(inverted, expected));
+    rset_free(expected);
+
+    rset_t *inverted_twice = rset_new();
+    assert(inverted_twice);
+    assert(rset_invert(inverted, inverted_twice));
+    assert(rset_equals(set, inverted_twice));
+
+    rset_truncate(set);
+    rset_truncate(expected);
+    for (unsigned i = 0; i < 65536; i++)
+        assert(rset_add(expected, i));
+    assert(rset_invert(set, inverted));
+    assert(rset_cardinality(inverted) == 65536);
+    assert(rset_equals(inverted, expected));
+    assert(rset_invert(inverted, inverted_twice));
+    assert(rset_cardinality(inverted_twice) == 0);
+    assert(rset_equals(set, inverted_twice));
+
+    rset_truncate(set);
+    for (unsigned i = 0; i < 30000; i++)
+        assert(rset_add(set, i));
+    rset_truncate(expected);
+    for (unsigned i = 30000; i < 65536; i++)
+        assert(rset_add(expected, i));
+    assert(rset_invert(set, inverted));
+    assert(rset_cardinality(inverted) == 35536);
+    assert(rset_equals(inverted, expected));
+    assert(rset_invert(inverted, inverted_twice));
+    assert(rset_cardinality(inverted_twice) == 30000);
+    assert(rset_equals(set, inverted_twice));
+
+    rset_free(inverted_twice);
+    rset_free(inverted);
+    rset_free(set);
+}
+
 int main()
 {
     test_new();
@@ -254,5 +302,6 @@ int main()
     test_add_descending();
     test_add_optimal();
     test_contains();
+    test_invert();
     return 0;
 }

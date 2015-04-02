@@ -35,7 +35,8 @@ uint64_t nanoseconds()
 int main()
 {
     rset_t *set = rset_import(NULL, 4096);
-    assert(set);
+    rset_t *result = rset_import(NULL, 4096);
+    assert(set && result);
 
     BENCH_START
     rset_truncate(set);
@@ -60,15 +61,39 @@ int main()
     assert(rset_cardinality(set) == 65536);
     BENCH_END("Add optimal")
 
-    BENCH_START
     rset_truncate(set);
-    for (unsigned i = 0; i < 65536; i++) {
+    for (unsigned i = 0; i < 32768; i++)
+        assert(rset_add(set, i * 2));
+    assert(rset_cardinality(set) == 32768);
+    BENCH_START
+    assert(rset_contains(set, 10000));
+    BENCH_END("Contains bitset")
+
+    rset_truncate(set);
+    for (unsigned i = 0; i < 4095; i++)
         assert(rset_add(set, i));
-        if (i % 100 == 0)
-            assert(rset_contains(set, i));
-    }
-    assert(rset_cardinality(set) == 65536);
-    BENCH_END("Add ascending with contains check")
+    assert(rset_cardinality(set) == 4095);
+    BENCH_START
+    assert(rset_contains(set, 4000));
+    BENCH_END("Contains array")
+
+    rset_truncate(set);
+    for (unsigned i = 0; i < 32768; i++)
+        assert(rset_add(set, i * 2));
+    assert(rset_cardinality(set) == 32768);
+    BENCH_START
+    rset_invert(set, result);
+    assert(rset_cardinality(result) == 32768);
+    BENCH_END("Invert bitset")
+
+    rset_truncate(set);
+    for (unsigned i = 0; i < 4095; i++)
+        assert(rset_add(set, i * 2));
+    assert(rset_cardinality(set) == 4095);
+    BENCH_START
+    rset_invert(set, result);
+    assert(rset_cardinality(result) == 61441);
+    BENCH_END("Invert array")
 
     return 0;
 }
