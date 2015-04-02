@@ -63,6 +63,12 @@ unsigned rbit_cardinality(const rbit_t *set);
 bool rbit_add(rbit_t *set, uint16_t item);
 
 /**
+ * Check if the set contains an item.
+ */
+
+bool rbit_contains(const rbit_t *set, uint16_t item);
+
+/**
  * Check if two sets are equal.
  */
 

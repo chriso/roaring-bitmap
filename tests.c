@@ -174,7 +174,7 @@ static void test_add_ascending()
     assert(set && comparison);
     for (unsigned i = 0; i < 65536; i++) {
         assert(rbit_add(set, i));
-        assert(rbit_add(set, i));
+        assert(rbit_add(set, i)); // idempotent
         assert(rbit_add(comparison, i));
         assert(rbit_equals(set, comparison));
     }
@@ -192,7 +192,7 @@ static void test_add_descending()
     assert(set && comparison);
     for (int i = 65535; i >= 0; i--) {
         assert(rbit_add(set, i));
-        assert(rbit_add(set, i));
+        assert(rbit_add(set, i)); // idempotent
         assert(rbit_add(comparison, i));
         assert(rbit_equals(set, comparison));
     }
@@ -210,13 +210,13 @@ static void test_add_optimal()
     assert(set && comparison);
     for (unsigned i = 0; i < 32768; i++) {
         assert(rbit_add(set, i));
-        assert(rbit_add(set, i));
+        assert(rbit_add(set, i)); // idempotent
         assert(rbit_add(comparison, i));
         assert(rbit_equals(set, comparison));
     }
     for (unsigned i = 65535; i >= 32768; i--) {
         assert(rbit_add(set, i));
-        assert(rbit_add(set, i));
+        assert(rbit_add(set, i)); // idempotent
         assert(rbit_add(comparison, i));
         assert(rbit_equals(set, comparison));
     }
@@ -225,6 +225,18 @@ static void test_add_optimal()
     assert(set->buffer[0] == 0);
     rbit_free(set);
     rbit_free(comparison);
+}
+
+static void test_contains()
+{
+    rbit_t *set = rbit_new();
+    assert(set);
+    for (unsigned i = 0; i < 65536; i++) {
+        assert(!rbit_contains(set, i));
+        assert(rbit_add(set, i));
+        assert(rbit_contains(set, i));
+    }
+    rbit_free(set);
 }
 
 int main()
@@ -241,5 +253,6 @@ int main()
     test_add_ascending();
     test_add_descending();
     test_add_optimal();
+    test_contains();
     return 0;
 }

@@ -60,5 +60,15 @@ int main()
     assert(rbit_cardinality(set) == 65536);
     BENCH_END("Add optimal")
 
+    BENCH_START
+    rbit_truncate(set);
+    for (unsigned i = 0; i < 65536; i++) {
+        assert(rbit_add(set, i));
+        if (i % 100 == 0)
+            assert(rbit_contains(set, i));
+    }
+    assert(rbit_cardinality(set) == 65536);
+    BENCH_END("Add ascending with contains check")
+
     return 0;
 }

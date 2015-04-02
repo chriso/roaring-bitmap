@@ -204,6 +204,30 @@ static bool INLINE rbit_add_inverted_array(rbit_t *set, uint16_t item)
     return true;
 }
 
+static bool INLINE rbit_contains_array(const rbit_t *set, uint16_t item)
+{
+    unsigned cardinality = *set->buffer;
+    for (unsigned i = 1; i <= cardinality; i++)
+        if (set->buffer[i] == item)
+            return true;
+    return false;
+}
+
+static bool INLINE rbit_contains_bitset(const rbit_t *set, uint16_t item)
+{
+    return set->buffer[(item >> 4) + 1] & (1 << (item & 0xF));
+}
+
+static bool INLINE rbit_contains_inverted_array(const rbit_t *set,
+                                                uint16_t item)
+{
+    unsigned cardinality = max_cardinality - *set->buffer;
+    for (unsigned i = 1; i <= cardinality; i++)
+        if (set->buffer[i] == item)
+            return false;
+    return true;
+}
+
 bool rbit_add(rbit_t *set, uint16_t item)
 {
     unsigned cardinality = *set->buffer;
@@ -213,13 +237,12 @@ bool rbit_add(rbit_t *set, uint16_t item)
     if (UNLIKELY(rbit_is_empty(set))) {
         cardinality = *set->buffer = 0;
     } else if (UNLIKELY(cardinality == low_cutoff)) {
-        for (unsigned i = 1; i <= low_cutoff; i++)
-            if (set->buffer[i] == item)
-                return true;
+        if (rbit_contains_array(set, item))
+            return true;
         if (!rbit_convert_array_to_bitset(set))
             return false;
     } else if (UNLIKELY(cardinality == high_cutoff)) {
-        if (set->buffer[(item >> 4) + 1] & (1 << (item & 0xF)))
+        if (rbit_contains_bitset(set, item))
             return true;
         if (!rbit_convert_bitset_to_inverted_array(set))
             return false;
@@ -244,4 +267,18 @@ bool rbit_equals(const rbit_t *set, const rbit_t *comparison)
         return false;
     unsigned length = rbit_length_for(cardinality);
     return !length || !memcmp(set->buffer + 1, comparison->buffer + 1, length);
+}
+
+bool rbit_contains(const rbit_t *set, uint16_t item)
+{
+    unsigned cardinality = *set->buffer;
+    if (UNLIKELY(!cardinality))
+        return true;
+    if (UNLIKELY(rbit_is_empty(set)))
+        return false;
+    if (cardinality <= low_cutoff)
+        return rbit_contains_array(set, item);
+    if (cardinality > high_cutoff)
+        return rbit_contains_inverted_array(set, item);
+    return rbit_contains_bitset(set, item);
 }
