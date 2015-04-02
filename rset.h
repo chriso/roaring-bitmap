@@ -1,5 +1,5 @@
-#ifndef RBIT_H_
-#define RBIT_H_
+#ifndef rset_H_
+#define rset_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,7 +19,7 @@ extern "C" {
  *     |  cardinality  |   items...  |
  *
  * The set items are represented by either a sorted array of 16-bit unsigned
- * ints, or a bitset, whichever uses the least amount of space. The cut-off
+ * ints or a bitset, whichever uses the least amount of space. The cut-off
  * point is 4096 (2^12) items (8KB).
  *
  * When the bitset becomes very dense it is more efficient to store an
@@ -34,25 +34,25 @@ extern "C" {
 typedef struct {
     uint16_t *buffer;
     unsigned size;
-} rbit_t;
+} rset_t;
 
 /**
  * Create a new set.
  */
 
-rbit_t *rbit_new(void);
+rset_t *rset_new(void);
 
 /**
  * Free the specified set.
  */
 
-void rbit_free(rbit_t *set);
+void rset_free(rset_t *set);
 
 /**
  * Get the cardinality of the set.
  */
 
-unsigned rbit_cardinality(const rbit_t *set);
+unsigned rset_cardinality(const rset_t *set);
 
 /**
  * Add an item to the set.
@@ -60,51 +60,51 @@ unsigned rbit_cardinality(const rbit_t *set);
  * Returns true if the operation was successful and false otherwise.
  */
 
-bool rbit_add(rbit_t *set, uint16_t item);
+bool rset_add(rset_t *set, uint16_t item);
 
 /**
  * Check if the set contains an item.
  */
 
-bool rbit_contains(const rbit_t *set, uint16_t item);
+bool rset_contains(const rset_t *set, uint16_t item);
 
 /**
  * Check if two sets are equal.
  */
 
-bool rbit_equals(const rbit_t *set, const rbit_t *comparison);
+bool rset_equals(const rset_t *set, const rset_t *comparison);
 
 /**
  * Truncate the set.
  */
 
-void rbit_truncate(rbit_t *set);
+void rset_truncate(rset_t *set);
 
 /**
  * Export the set.
  *
- * The length of the buffer can be obtained with `rbit_length`.
+ * The length of the buffer can be obtained with `rset_length`.
  */
 
-const void *rbit_export(const rbit_t *set);
+const void *rset_export(const rset_t *set);
 
 /**
  * Get the length of the set in bytes.
  */
 
-unsigned rbit_length(const rbit_t *set);
+unsigned rset_length(const rset_t *set);
 
 /**
  * Import a set given a buffer.
  */
 
-rbit_t *rbit_import(const void *buffer, unsigned length);
+rset_t *rset_import(const void *buffer, unsigned length);
 
 /**
  * Make a copy of the set.
  */
 
-rbit_t *rbit_copy(const rbit_t *set);
+rset_t *rset_copy(const rset_t *set);
 
 #ifdef __cplusplus
 }

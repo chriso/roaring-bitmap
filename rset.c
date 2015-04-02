@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "rbit.h"
+#include "rset.h"
 
 #define NOINLINE __attribute__ ((noinline))
 #define INLINE __attribute__ ((always_inline))
@@ -15,7 +15,7 @@ const static unsigned low_cutoff = 1 << 12;
 const static unsigned high_cutoff = max_cardinality - low_cutoff;
 const static unsigned max_item = 0xFFFF;
 
-static bool INLINE rbit_is_empty(const rbit_t *set)
+static bool INLINE rset_is_empty(const rset_t *set)
 {
     // There are 65536 possible items in the set (0-65535 inclusive) and then
     // the set can be empty, so there are 65537 (2^16+1) possible states. Since
@@ -32,24 +32,24 @@ static bool INLINE rbit_is_empty(const rbit_t *set)
     return set->buffer[0] == 2 && set->buffer[1] == max_item;
 }
 
-unsigned rbit_cardinality(const rbit_t *set)
+unsigned rset_cardinality(const rset_t *set)
 {
     if (!*set->buffer)
         return max_cardinality;
-    if (rbit_is_empty(set))
+    if (rset_is_empty(set))
         return 0;
     return *set->buffer;
 }
 
-void rbit_truncate(rbit_t *set)
+void rset_truncate(rset_t *set)
 {
     set->buffer[0] = 2;
     set->buffer[1] = max_item;
 }
 
-rbit_t *rbit_import(const void *buffer, unsigned length)
+rset_t *rset_import(const void *buffer, unsigned length)
 {
-    rbit_t *set = malloc(sizeof(rbit_t));
+    rset_t *set = malloc(sizeof(rset_t));
     if (!set)
         return NULL;
     unsigned size = length ? length : 1;
@@ -64,32 +64,32 @@ rbit_t *rbit_import(const void *buffer, unsigned length)
     if (buffer && length)
         memcpy(set->buffer, buffer, length);
     else
-        rbit_truncate(set);
+        rset_truncate(set);
     return set;
 }
 
-rbit_t *rbit_new()
+rset_t *rset_new()
 {
-    return rbit_import(NULL, default_size);
+    return rset_import(NULL, default_size);
 }
 
-void rbit_free(rbit_t *set)
+void rset_free(rset_t *set)
 {
     free(set->buffer);
     free(set);
 }
 
-const void *rbit_export(const rbit_t *set)
+const void *rset_export(const rset_t *set)
 {
     return set->buffer;
 }
 
-rbit_t *rbit_copy(const rbit_t *set)
+rset_t *rset_copy(const rset_t *set)
 {
-    return rbit_import(rbit_export(set), rbit_length(set));
+    return rset_import(rset_export(set), rset_length(set));
 }
 
-static unsigned INLINE rbit_length_for(unsigned cardinality)
+static unsigned INLINE rset_length_for(unsigned cardinality)
 {
     if (!cardinality)
         cardinality = 1;
@@ -100,12 +100,12 @@ static unsigned INLINE rbit_length_for(unsigned cardinality)
     return sizeof(uint16_t) * cardinality;
 }
 
-unsigned rbit_length(const rbit_t *set)
+unsigned rset_length(const rset_t *set)
 {
-    return sizeof(uint16_t) + rbit_length_for(rbit_cardinality(set));
+    return sizeof(uint16_t) + rset_length_for(rset_cardinality(set));
 }
 
-static bool NOINLINE rbit_grow(rbit_t *set)
+static bool NOINLINE rset_grow(rset_t *set)
 {
     unsigned new_size = set->size * growth_factor;
     if (new_size > low_cutoff)
@@ -118,7 +118,7 @@ static bool NOINLINE rbit_grow(rbit_t *set)
     return true;
 }
 
-static bool NOINLINE rbit_convert_array_to_bitset(rbit_t *set)
+static bool NOINLINE rset_convert_array_to_bitset(rset_t *set)
 {
     uint16_t *bitset = calloc(low_cutoff, sizeof(uint16_t));
     uint16_t *array = set->buffer + 1;
@@ -131,7 +131,7 @@ static bool NOINLINE rbit_convert_array_to_bitset(rbit_t *set)
     return true;
 }
 
-static bool NOINLINE rbit_convert_bitset_to_inverted_array(rbit_t *set)
+static bool NOINLINE rset_convert_bitset_to_inverted_array(rset_t *set)
 {
     uint16_t *array = calloc(low_cutoff, sizeof(uint16_t));
     if (!array)
@@ -146,7 +146,7 @@ static bool NOINLINE rbit_convert_bitset_to_inverted_array(rbit_t *set)
     return true;
 }
 
-static bool INLINE rbit_add_array(rbit_t *set, uint16_t item)
+static bool INLINE rset_add_array(rset_t *set, uint16_t item)
 {
     unsigned i, cardinality = *set->buffer;
     if (cardinality && set->buffer[cardinality] < item) {
@@ -160,7 +160,7 @@ static bool INLINE rbit_add_array(rbit_t *set, uint16_t item)
             break;
         }
     }
-    if (UNLIKELY(cardinality == set->size && !rbit_grow(set)))
+    if (UNLIKELY(cardinality == set->size && !rset_grow(set)))
         return false;
     if (cardinality + 1 > i) {
         memmove(set->buffer + i + 1,
@@ -172,7 +172,7 @@ static bool INLINE rbit_add_array(rbit_t *set, uint16_t item)
     return true;
 }
 
-static bool INLINE rbit_add_bitset(rbit_t *set, uint16_t item)
+static bool INLINE rset_add_bitset(rset_t *set, uint16_t item)
 {
     unsigned offset = (item >> 4) + 1;
     unsigned bit = 1 << (item & 0xF);
@@ -183,7 +183,7 @@ static bool INLINE rbit_add_bitset(rbit_t *set, uint16_t item)
     return true;
 }
 
-static bool INLINE rbit_add_inverted_array(rbit_t *set, uint16_t item)
+static bool INLINE rset_add_inverted_array(rset_t *set, uint16_t item)
 {
     unsigned cardinality = max_cardinality - *set->buffer;
     if (set->buffer[cardinality] == item) {
@@ -204,7 +204,7 @@ static bool INLINE rbit_add_inverted_array(rbit_t *set, uint16_t item)
     return true;
 }
 
-static bool INLINE rbit_contains_array(const rbit_t *set, uint16_t item)
+static bool INLINE rset_contains_array(const rset_t *set, uint16_t item)
 {
     unsigned cardinality = *set->buffer;
     for (unsigned i = 1; i <= cardinality; i++)
@@ -213,12 +213,12 @@ static bool INLINE rbit_contains_array(const rbit_t *set, uint16_t item)
     return false;
 }
 
-static bool INLINE rbit_contains_bitset(const rbit_t *set, uint16_t item)
+static bool INLINE rset_contains_bitset(const rset_t *set, uint16_t item)
 {
     return set->buffer[(item >> 4) + 1] & (1 << (item & 0xF));
 }
 
-static bool INLINE rbit_contains_inverted_array(const rbit_t *set,
+static bool INLINE rset_contains_inverted_array(const rset_t *set,
                                                 uint16_t item)
 {
     unsigned cardinality = max_cardinality - *set->buffer;
@@ -228,57 +228,57 @@ static bool INLINE rbit_contains_inverted_array(const rbit_t *set,
     return true;
 }
 
-bool rbit_add(rbit_t *set, uint16_t item)
+bool rset_add(rset_t *set, uint16_t item)
 {
     unsigned cardinality = *set->buffer;
     if (UNLIKELY(!cardinality))
         return true;
 
-    if (UNLIKELY(rbit_is_empty(set))) {
+    if (UNLIKELY(rset_is_empty(set))) {
         cardinality = *set->buffer = 0;
     } else if (UNLIKELY(cardinality == low_cutoff)) {
-        if (rbit_contains_array(set, item))
+        if (rset_contains_array(set, item))
             return true;
-        if (!rbit_convert_array_to_bitset(set))
+        if (!rset_convert_array_to_bitset(set))
             return false;
     } else if (UNLIKELY(cardinality == high_cutoff)) {
-        if (rbit_contains_bitset(set, item))
+        if (rset_contains_bitset(set, item))
             return true;
-        if (!rbit_convert_bitset_to_inverted_array(set))
+        if (!rset_convert_bitset_to_inverted_array(set))
             return false;
     }
 
     if (cardinality < low_cutoff) {
-        if (!rbit_add_array(set, item))
+        if (!rset_add_array(set, item))
             return false;
     } else if (cardinality >= high_cutoff) {
-        if (!rbit_add_inverted_array(set, item))
+        if (!rset_add_inverted_array(set, item))
             return false;
-    } else if (!rbit_add_bitset(set, item))
+    } else if (!rset_add_bitset(set, item))
         return false;
 
     return true;
 }
 
-bool rbit_equals(const rbit_t *set, const rbit_t *comparison)
+bool rset_equals(const rset_t *set, const rset_t *comparison)
 {
-    unsigned cardinality = rbit_cardinality(set);
-    if (cardinality != rbit_cardinality(comparison))
+    unsigned cardinality = rset_cardinality(set);
+    if (cardinality != rset_cardinality(comparison))
         return false;
-    unsigned length = rbit_length_for(cardinality);
+    unsigned length = rset_length_for(cardinality);
     return !length || !memcmp(set->buffer + 1, comparison->buffer + 1, length);
 }
 
-bool rbit_contains(const rbit_t *set, uint16_t item)
+bool rset_contains(const rset_t *set, uint16_t item)
 {
     unsigned cardinality = *set->buffer;
     if (UNLIKELY(!cardinality))
         return true;
-    if (UNLIKELY(rbit_is_empty(set)))
+    if (UNLIKELY(rset_is_empty(set)))
         return false;
     if (cardinality <= low_cutoff)
-        return rbit_contains_array(set, item);
+        return rset_contains_array(set, item);
     if (cardinality > high_cutoff)
-        return rbit_contains_inverted_array(set, item);
-    return rbit_contains_bitset(set, item);
+        return rset_contains_inverted_array(set, item);
+    return rset_contains_bitset(set, item);
 }

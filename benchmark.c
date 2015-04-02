@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "rbit.h"
+#include "rset.h"
 
 #ifdef __MACH__
 # include <mach/mach_time.h>
@@ -34,40 +34,40 @@ uint64_t nanoseconds()
 
 int main()
 {
-    rbit_t *set = rbit_import(NULL, 4096);
+    rset_t *set = rset_import(NULL, 4096);
     assert(set);
 
     BENCH_START
-    rbit_truncate(set);
+    rset_truncate(set);
     for (unsigned i = 0; i < 65536; i++)
-        assert(rbit_add(set, i));
-    assert(rbit_cardinality(set) == 65536);
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
     BENCH_END("Add ascending")
 
     BENCH_START
-    rbit_truncate(set);
+    rset_truncate(set);
     for (int i = 65535; i >= 0; i--)
-        assert(rbit_add(set, i));
-    assert(rbit_cardinality(set) == 65536);
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
     BENCH_END("Add descending")
 
     BENCH_START
-    rbit_truncate(set);
+    rset_truncate(set);
     for (unsigned i = 0; i < 32768; i++)
-        assert(rbit_add(set, i));
+        assert(rset_add(set, i));
     for (unsigned i = 65535; i >= 32768; i--)
-        assert(rbit_add(set, i));
-    assert(rbit_cardinality(set) == 65536);
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
     BENCH_END("Add optimal")
 
     BENCH_START
-    rbit_truncate(set);
+    rset_truncate(set);
     for (unsigned i = 0; i < 65536; i++) {
-        assert(rbit_add(set, i));
+        assert(rset_add(set, i));
         if (i % 100 == 0)
-            assert(rbit_contains(set, i));
+            assert(rset_contains(set, i));
     }
-    assert(rbit_cardinality(set) == 65536);
+    assert(rset_cardinality(set) == 65536);
     BENCH_END("Add ascending with contains check")
 
     return 0;

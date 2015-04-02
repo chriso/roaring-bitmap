@@ -1,13 +1,13 @@
 CFLAGS = -std=c99 -pedantic -Wall -Wextra -g
 
-rbit.o: rbit.c rbit.h
-tests.o: tests.c rbit.h
-benchmark.o: benchmark.c rbit.h
+rset.o: rset.c rset.h
+tests.o: tests.c rset.h
+benchmark.o: benchmark.c rset.h
 
-tests: rbit.o tests.o
+tests: rset.o tests.o
 
 benchmark: CFLAGS += -O3
-benchmark: rbit.o benchmark.o
+benchmark: rset.o benchmark.o
 
 check: tests
 	./tests
