@@ -14,6 +14,7 @@ const static unsigned max_cardinality = 1 << 16;
 const static unsigned low_cutoff = 1 << 12;
 const static unsigned high_cutoff = max_cardinality - low_cutoff;
 const static unsigned max_item = 0xFFFF;
+const static unsigned max_size = low_cutoff;
 
 static bool INLINE rset_is_empty(const rset_t *set)
 {
@@ -32,19 +33,49 @@ static bool INLINE rset_is_empty(const rset_t *set)
     return set->buffer[0] == 2 && set->buffer[1] == max_item;
 }
 
+static bool INLINE rset_is_full(const rset_t *set)
+{
+    return set->buffer[0] == 0;
+}
+
+static bool INLINE rset_is_bitset(const rset_t *set)
+{
+    unsigned cardinality = *set->buffer;
+    return cardinality > low_cutoff && cardinality <= high_cutoff;
+}
+
+static bool INLINE rset_is_array(const rset_t *set)
+{
+    unsigned cardinality = *set->buffer;
+    return cardinality <= low_cutoff;
+}
+
+static bool INLINE rset_is_inverted_array(const rset_t *set)
+{
+    unsigned cardinality = *set->buffer;
+    return cardinality > high_cutoff;
+}
+
 unsigned rset_cardinality(const rset_t *set)
 {
-    if (!*set->buffer)
+    if (rset_is_full(set))
         return max_cardinality;
     if (rset_is_empty(set))
         return 0;
     return *set->buffer;
 }
 
-void rset_truncate(rset_t *set)
+bool rset_truncate(rset_t *set)
 {
     set->buffer[0] = 2;
     set->buffer[1] = max_item;
+    return true;
+}
+
+bool rset_fill(rset_t *set)
+{
+    set->buffer[0] = 0;
+    return true;
 }
 
 rset_t *rset_import(const void *buffer, unsigned length)
@@ -53,8 +84,8 @@ rset_t *rset_import(const void *buffer, unsigned length)
     if (!set)
         return NULL;
     unsigned size = length ? length : 1;
-    if (size > low_cutoff)
-        size = low_cutoff;
+    if (size > max_size)
+        size = max_size;
     set->buffer = malloc(sizeof(uint16_t) * (1 + size));
     if (!set->buffer) {
         free(set);
@@ -120,35 +151,35 @@ static bool rset_grow_to(rset_t *set, unsigned size)
 static bool NOINLINE rset_grow(rset_t *set)
 {
     unsigned size = set->size * growth_factor;
-    if (size > low_cutoff)
-        size = low_cutoff;
+    if (size > max_size)
+        size = max_size;
     return rset_grow_to(set, size);
 }
 
 static bool NOINLINE rset_convert_array_to_bitset(rset_t *set)
 {
-    uint16_t *bitset = calloc(low_cutoff, sizeof(uint16_t));
+    uint16_t *bitset = calloc(max_size, sizeof(uint16_t));
     uint16_t *array = set->buffer + 1;
     if (!bitset)
         return false;
-    for (unsigned i = 0; i < low_cutoff; i++)
+    for (unsigned i = 0; i < max_size; i++)
         bitset[array[i] >> 4] |= 1 << (array[i] & 0xF);
-    memcpy(array, bitset, low_cutoff * sizeof(uint16_t));
+    memcpy(array, bitset, max_size * sizeof(uint16_t));
     free(bitset);
     return true;
 }
 
 static bool NOINLINE rset_convert_bitset_to_inverted_array(rset_t *set)
 {
-    uint16_t *array = calloc(low_cutoff, sizeof(uint16_t));
+    uint16_t *array = calloc(max_size, sizeof(uint16_t));
     if (!array)
         return false;
     uint16_t *ptr = array, *bitset = set->buffer + 1;
-    for (unsigned bit = 0, i = 0; i < low_cutoff; i++)
+    for (unsigned bit = 0, i = 0; i < max_size; i++)
         for (unsigned j = 0; j < 16; j++, bit++)
             if (!(bitset[i] & (1 << j)))
                 *ptr++ = bit;
-    memcpy(bitset, array, low_cutoff * sizeof(uint16_t));
+    memcpy(bitset, array, max_size * sizeof(uint16_t));
     free(array);
     return true;
 }
@@ -197,13 +228,13 @@ static bool INLINE rset_add_inverted_array(rset_t *set, uint16_t item)
         *set->buffer += 1;
         return true;
     }
-    for (unsigned i = 1; i <= cardinality; i++) {
-        if (set->buffer[i] < item)
+    uint16_t *array = set->buffer + 1;
+    for (unsigned i = 0; i < cardinality; i++) {
+        if (array[i] < item)
             continue;
-        if (set->buffer[i] > item)
+        if (array[i] > item)
             break;
-        memmove(set->buffer + i,
-                set->buffer + i + 1,
+        memmove(array + i, array + i + 1,
                 (cardinality - i) * sizeof(uint16_t));
         *set->buffer += 1;
         return true;
@@ -214,9 +245,19 @@ static bool INLINE rset_add_inverted_array(rset_t *set, uint16_t item)
 static bool INLINE rset_contains_array(const rset_t *set, uint16_t item)
 {
     unsigned cardinality = *set->buffer;
-    for (unsigned i = 1; i <= cardinality; i++)
-        if (set->buffer[i] == item)
+    if (cardinality > high_cutoff)
+        cardinality = max_cardinality - cardinality;
+    uint16_t *array = set->buffer + 1;
+    int first = 0, last = cardinality - 1, middle = (first + last) / 2;
+    while (first <= last) {
+        if (array[middle] == item)
             return true;
+        if (array[middle] < item)
+            first = middle + 1;
+        else
+            last = middle - 1;
+        middle = (first + last) / 2;
+    }
     return false;
 }
 
@@ -225,25 +266,16 @@ static bool INLINE rset_contains_bitset(const rset_t *set, uint16_t item)
     return set->buffer[(item >> 4) + 1] & (1 << (item & 0xF));
 }
 
-static bool INLINE rset_contains_inverted_array(const rset_t *set,
-                                                uint16_t item)
-{
-    unsigned cardinality = max_cardinality - *set->buffer;
-    for (unsigned i = 1; i <= cardinality; i++)
-        if (set->buffer[i] == item)
-            return false;
-    return true;
-}
-
 bool rset_add(rset_t *set, uint16_t item)
 {
-    unsigned cardinality = *set->buffer;
-    if (UNLIKELY(!cardinality))
+    if (UNLIKELY(rset_is_full(set)))
         return true;
 
-    if (UNLIKELY(rset_is_empty(set))) {
-        cardinality = *set->buffer = 0;
-    } else if (UNLIKELY(cardinality == low_cutoff)) {
+    if (UNLIKELY(rset_is_empty(set)))
+        *set->buffer = 0;
+
+    unsigned cardinality = *set->buffer;
+    if (UNLIKELY(cardinality == low_cutoff)) {
         if (rset_contains_array(set, item))
             return true;
         if (!rset_convert_array_to_bitset(set))
@@ -278,38 +310,42 @@ bool rset_equals(const rset_t *set, const rset_t *comparison)
 
 bool rset_contains(const rset_t *set, uint16_t item)
 {
-    unsigned cardinality = *set->buffer;
-    if (UNLIKELY(!cardinality))
+    if (rset_is_full(set))
         return true;
-    if (UNLIKELY(rset_is_empty(set)))
+    if (rset_is_empty(set))
         return false;
-    if (cardinality <= low_cutoff)
+    if (rset_is_array(set))
         return rset_contains_array(set, item);
-    if (cardinality > high_cutoff)
-        return rset_contains_inverted_array(set, item);
+    if (rset_is_inverted_array(set))
+        return !rset_contains_array(set, item);
     return rset_contains_bitset(set, item);
+}
+
+static bool rset_copy_to(const rset_t *set, rset_t *dest)
+{
+    if (!rset_grow_to(dest, set->size))
+        return false;
+    memcpy(dest->buffer, set->buffer, rset_length(set));
+    return true;
+}
+
+static void INLINE rset_invert_bitset(rset_t *set)
+{
+    uint16_t *bitset = set->buffer + 1;
+    for (unsigned i = 0; i < max_size; i++)
+        bitset[i] = ~bitset[i];
 }
 
 bool rset_invert(const rset_t *set, rset_t *result)
 {
-    unsigned cardinality = *set->buffer;
-    if (UNLIKELY(!cardinality)) {
-        rset_truncate(result);
-        return true;
-    }
-    if (UNLIKELY(rset_is_empty(set))) {
-        *result->buffer = 0;
-        return true;
-    }
-    if (!rset_grow_to(result, set->size))
+    if (rset_is_empty(set)) // ~0 => U
+        return rset_fill(result);
+    if (rset_is_full(set)) // ~U => 0
+        return rset_truncate(result);
+    if (!rset_copy_to(set, result))
         return false;
-    if (cardinality <= low_cutoff || cardinality > high_cutoff) {
-        memcpy(result->buffer, set->buffer, rset_length(set));
-        *result->buffer = max_cardinality - *result->buffer;
-    } else {
-        *result->buffer = max_cardinality - *set->buffer;
-        for (unsigned i = 1; i <= low_cutoff; i++)
-            result->buffer[i] = ~set->buffer[i];
-    }
+    *result->buffer = max_cardinality - *result->buffer;
+    if (rset_is_bitset(result))
+        rset_invert_bitset(result);
     return true;
 }

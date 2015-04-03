@@ -38,29 +38,6 @@ int main()
     rset_t *result = rset_import(NULL, 4096);
     assert(set && result);
 
-    BENCH_START
-    rset_truncate(set);
-    for (unsigned i = 0; i < 65536; i++)
-        assert(rset_add(set, i));
-    assert(rset_cardinality(set) == 65536);
-    BENCH_END("Add ascending")
-
-    BENCH_START
-    rset_truncate(set);
-    for (int i = 65535; i >= 0; i--)
-        assert(rset_add(set, i));
-    assert(rset_cardinality(set) == 65536);
-    BENCH_END("Add descending")
-
-    BENCH_START
-    rset_truncate(set);
-    for (unsigned i = 0; i < 32768; i++)
-        assert(rset_add(set, i));
-    for (unsigned i = 65535; i >= 32768; i--)
-        assert(rset_add(set, i));
-    assert(rset_cardinality(set) == 65536);
-    BENCH_END("Add optimal")
-
     rset_truncate(set);
     for (unsigned i = 0; i < 32768; i++)
         assert(rset_add(set, i * 2));
@@ -94,6 +71,29 @@ int main()
     rset_invert(set, result);
     assert(rset_cardinality(result) == 61441);
     BENCH_END("Invert array")
+
+    BENCH_START
+    rset_truncate(set);
+    for (unsigned i = 0; i < 65536; i++)
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
+    BENCH_END("Fill ascending")
+
+    BENCH_START
+    rset_truncate(set);
+    for (int i = 65535; i >= 0; i--)
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
+    BENCH_END("Fill descending")
+
+    BENCH_START
+    rset_truncate(set);
+    for (unsigned i = 0; i < 32768; i++)
+        assert(rset_add(set, i));
+    for (unsigned i = 65535; i >= 32768; i--)
+        assert(rset_add(set, i));
+    assert(rset_cardinality(set) == 65536);
+    BENCH_END("Fill optimal")
 
     return 0;
 }

@@ -86,7 +86,13 @@ bool rset_invert(const rset_t *set, rset_t *result);
  * Truncate the set.
  */
 
-void rset_truncate(rset_t *set);
+bool rset_truncate(rset_t *set);
+
+/**
+ * Fill the set with all possible items.
+ */
+
+bool rset_fill(rset_t *set);
 
 /**
  * Export the set.

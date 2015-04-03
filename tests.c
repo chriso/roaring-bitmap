@@ -167,7 +167,7 @@ static void test_bitset_to_inverted_array()
     rset_free(set);
 }
 
-static void test_add_ascending()
+static void test_fill_ascending()
 {
     rset_t *set = rset_new();
     rset_t *comparison = rset_new();
@@ -185,7 +185,7 @@ static void test_add_ascending()
     rset_free(comparison);
 }
 
-static void test_add_descending()
+static void test_fill_descending()
 {
     rset_t *set = rset_new();
     rset_t *comparison = rset_new();
@@ -203,7 +203,7 @@ static void test_add_descending()
     rset_free(comparison);
 }
 
-static void test_add_optimal()
+static void test_fill_optimal()
 {
     rset_t *set = rset_new();
     rset_t *comparison = rset_new();
@@ -251,7 +251,6 @@ static void test_invert()
     rset_t *expected = rset_new_items(4, 0, 1, 2, 3);
     assert(expected);
     assert(rset_equals(inverted, expected));
-    rset_free(expected);
 
     rset_t *inverted_twice = rset_new();
     assert(inverted_twice);
@@ -264,6 +263,7 @@ static void test_invert()
         assert(rset_add(expected, i));
     assert(rset_invert(set, inverted));
     assert(rset_cardinality(inverted) == 65536);
+
     assert(rset_equals(inverted, expected));
     assert(rset_invert(inverted, inverted_twice));
     assert(rset_cardinality(inverted_twice) == 0);
@@ -282,6 +282,7 @@ static void test_invert()
     assert(rset_cardinality(inverted_twice) == 30000);
     assert(rset_equals(set, inverted_twice));
 
+    rset_free(expected);
     rset_free(inverted_twice);
     rset_free(inverted);
     rset_free(set);
@@ -298,9 +299,9 @@ int main()
     test_buffer_resizing();
     test_array_to_bitset();
     test_bitset_to_inverted_array();
-    test_add_ascending();
-    test_add_descending();
-    test_add_optimal();
+    test_fill_ascending();
+    test_fill_descending();
+    test_fill_optimal();
     test_contains();
     test_invert();
     return 0;
