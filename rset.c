@@ -6,6 +6,7 @@
 #define NOINLINE __attribute__ ((noinline))
 #define INLINE __attribute__ ((always_inline))
 #define UNLIKELY(x) __builtin_expect((x), 0)
+#define MAX(a, b) ((a > b) ? (a) : (b))
 
 const static unsigned default_size = 8;
 const static unsigned growth_factor = 2;
@@ -348,4 +349,75 @@ bool rset_invert(const rset_t *set, rset_t *result)
     if (rset_is_bitset(result))
         rset_invert_bitset(result);
     return true;
+}
+
+static bool rset_intersection_array(const rset_t *a, const rset_t *b,
+                                    rset_t *result)
+{
+    unsigned result_size = MAX(*a->buffer, *b->buffer);
+    if (!rset_grow_to(result, result_size))
+        return false;
+    uint16_t *array_a = a->buffer + 1;
+    uint16_t *array_b = b->buffer + 1;
+    uint16_t *array_result = result->buffer + 1;
+    const uint16_t* a_end = array_a + *a->buffer;
+    const uint16_t* b_end = array_b + *b->buffer;
+    while (array_a < a_end && array_b < b_end) {
+        if (*array_a < *array_b) {
+            array_a++;
+        } else if (*array_b < *array_a) {
+            array_b++;
+        } else {
+            *array_result++ = *array_a++;
+            array_b++;
+        }
+    }
+    *result->buffer = array_result - result->buffer - 1;
+    if (!*result->buffer)
+        rset_truncate(result);
+    return true;
+}
+
+static unsigned rset_intersection_bitset(const rset_t *a, const rset_t *b,
+                                         rset_t *result)
+{
+    uint16_t *bitset_a = a->buffer + 1;
+    uint16_t *bitset_b = b->buffer + 1;
+    uint16_t *bitset_result = result->buffer + 1;
+    unsigned cardinality = 0;
+    for (unsigned i = 0; i < max_size; i++) {
+        bitset_result[i] = bitset_a[i] & bitset_b[i];
+        cardinality += __builtin_popcount(bitset_result[i]);
+    }
+    return cardinality;
+}
+
+bool rset_intersection(const rset_t *a, const rset_t *b, rset_t *result)
+{
+    if (rset_is_empty(a) || rset_is_empty(b)) // A & 0 => 0
+        return rset_truncate(result);
+    if (rset_is_full(a)) // A & U => A
+        return rset_copy_to(b, result);
+    else if (rset_is_full(b))
+        return rset_copy_to(a, result);
+    if (rset_is_array(a) && rset_is_array(b))
+        return rset_intersection_array(a, b, result);
+
+    // TODO: convert both operands to bitsets if necessary
+
+    if (!rset_grow_to(result, max_size))
+        return false;
+    unsigned cardinality = rset_intersection_bitset(a, b, result);
+
+    if (!cardinality)
+        return rset_truncate(result);
+    if (cardinality == max_cardinality)
+        return rset_fill(result);
+
+    *result->buffer = cardinality;
+    return true;
+
+    // TODO: convert back to an array or inverted array as necessary
+
+    return false;
 }

@@ -288,6 +288,44 @@ static void test_invert()
     rset_free(set);
 }
 
+static void test_intersection()
+{
+    rset_t *a = rset_new();
+    rset_t *b = rset_new_items(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    rset_t *result = rset_new();
+    assert(a && b && result);
+
+    assert(rset_intersection(a, b, result));
+    assert(rset_cardinality(result) == 0);
+    assert(rset_intersection(b, a, result));
+    assert(rset_cardinality(result) == 0);
+
+    assert(rset_fill(a));
+
+    assert(rset_intersection(a, b, result));
+    assert(rset_equals(b, result));
+    assert(rset_intersection(b, a, result));
+    assert(rset_equals(b, result));
+
+    rset_truncate(a);
+    for (unsigned i = 0; i < 100; i += 2)
+        assert(rset_add(a, i));
+    assert(rset_intersection(a, b, result));
+    rset_t *expected = rset_new_items(5, 0, 2, 4, 6, 8);
+    assert(rset_equals(result, expected));
+
+    rset_truncate(b);
+    for (unsigned i = 1; i < 100; i += 2)
+        assert(rset_add(b, i));
+    assert(rset_intersection(a, b, result));
+    assert(rset_cardinality(result) == 0);
+
+    rset_free(a);
+    rset_free(b);
+    rset_free(result);
+    rset_free(expected);
+}
+
 int main()
 {
     test_new();
@@ -304,5 +342,6 @@ int main()
     test_fill_optimal();
     test_contains();
     test_invert();
+    test_intersection();
     return 0;
 }

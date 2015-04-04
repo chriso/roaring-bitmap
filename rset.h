@@ -83,6 +83,14 @@ bool rset_equals(const rset_t *set, const rset_t *comparison);
 bool rset_invert(const rset_t *set, rset_t *result);
 
 /**
+ * Calculate the intersection of two sets and place the result in
+ * the `result` set.
+ *
+ * Returns true if the operation was successful and false otherwise.
+ */
+bool rset_intersection(const rset_t *a, const rset_t *b, rset_t *result);
+
+/**
  * Truncate the set.
  */
 

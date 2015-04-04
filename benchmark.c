@@ -35,13 +35,13 @@ uint64_t nanoseconds()
 int main()
 {
     rset_t *set = rset_import(NULL, 4096);
+    rset_t *set_b = rset_import(NULL, 4096);
     rset_t *result = rset_import(NULL, 4096);
     assert(set && result);
 
     rset_truncate(set);
     for (unsigned i = 0; i < 32768; i++)
         assert(rset_add(set, i * 2));
-    assert(rset_cardinality(set) == 32768);
     BENCH_START
     assert(rset_contains(set, 10000));
     BENCH_END("Contains bitset")
@@ -49,7 +49,6 @@ int main()
     rset_truncate(set);
     for (unsigned i = 0; i < 4095; i++)
         assert(rset_add(set, i));
-    assert(rset_cardinality(set) == 4095);
     BENCH_START
     assert(rset_contains(set, 4000));
     BENCH_END("Contains array")
@@ -57,7 +56,6 @@ int main()
     rset_truncate(set);
     for (unsigned i = 0; i < 32768; i++)
         assert(rset_add(set, i * 2));
-    assert(rset_cardinality(set) == 32768);
     BENCH_START
     rset_invert(set, result);
     assert(rset_cardinality(result) == 32768);
@@ -66,11 +64,31 @@ int main()
     rset_truncate(set);
     for (unsigned i = 0; i < 4095; i++)
         assert(rset_add(set, i * 2));
-    assert(rset_cardinality(set) == 4095);
     BENCH_START
     rset_invert(set, result);
     assert(rset_cardinality(result) == 61441);
     BENCH_END("Invert array")
+
+    rset_truncate(set);
+    for (unsigned i = 0; i < 4095; i++) {
+        assert(rset_add(set, i * 2));
+        assert(rset_add(set_b, i * 3));
+    }
+    BENCH_START
+    rset_intersection(set, set_b, result);
+    assert(rset_cardinality(result) == 1365);
+    BENCH_END("Intersection with arrays")
+
+    rset_truncate(set);
+    rset_truncate(set_b);
+    for (unsigned i = 0; i < 20000; i++) {
+        assert(rset_add(set, i * 2));
+        assert(rset_add(set_b, i * 3));
+    }
+    BENCH_START
+    rset_intersection(set, set_b, result);
+    assert(rset_cardinality(result) == 6667);
+    BENCH_END("Intersection with bitsets")
 
     BENCH_START
     rset_truncate(set);
