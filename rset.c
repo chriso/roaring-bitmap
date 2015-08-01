@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <smmintrin.h>
 
 #include "rset.h"
 
@@ -351,28 +352,88 @@ bool rset_invert(const rset_t *set, rset_t *result)
     return true;
 }
 
+static inline const uint16_t*
+naive_intersection(const uint16_t* restrict a, size_t a_size,
+                   const uint16_t* restrict b, size_t b_size,
+                   uint16_t* restrict result)
+{
+    const uint16_t* const restrict a_end = a + a_size;
+    const uint16_t* const restrict b_end = b + b_size;
+    while (a < a_end && b < b_end) {
+        if (*a < *b) {
+            a++;
+        } else if (*b < *a) {
+            b++;
+        } else {
+            *result++ = *a++;
+            b++;
+        }
+    }
+    return result;
+}
+
+static inline const uint16_t*
+sse_intersection(const uint16_t* restrict a, size_t a_size,
+                 const uint16_t* restrict b, size_t b_size,
+                 uint16_t* restrict result)
+{
+    // from https://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
+    size_t count = 0;
+    static __m128i shuffle_mask16[256];
+    static int built_shuffle_mask = 0;
+    if (!built_shuffle_mask) {
+        built_shuffle_mask = 1;
+        for (int i = 0; i < 256; i++) {
+            uint8_t mask[16];
+            memset(mask, 0xFF, sizeof(mask));
+            int counter = 0;
+            for (int j = 0; j < 16; j++) {
+                if (i & (1 << j)) {
+                    mask[counter++] = 2 * j;
+                    mask[counter++] = 2 * j + 1;
+                }
+            }
+            __m128i v_mask = _mm_loadu_si128((const __m128i *)mask);
+            shuffle_mask16[i] = v_mask;
+        }
+    }
+    size_t i_a = 0, i_b = 0;
+    size_t st_a = (a_size / 8) * 8;
+    size_t st_b = (b_size / 8) * 8;
+
+    while(i_a < st_a && i_b < st_b) {
+        __m128i v_a = _mm_loadu_si128((__m128i *)&a[i_a]);
+        __m128i v_b = _mm_loadu_si128((__m128i *)&b[i_b]);
+        __m128i v_cmp = _mm_cmpestrm(v_a, 8, v_b, 8,
+            _SIDD_UWORD_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK);
+        int r = _mm_extract_epi32(v_cmp, 0);
+        __m128i v_shuf = _mm_shuffle_epi8(v_b, shuffle_mask16[r]);
+        _mm_storeu_si128((__m128i *)&result[count], v_shuf);
+        count += _mm_popcnt_u32(r);
+        uint16_t a_max = _mm_extract_epi16(v_a, 7);
+        uint16_t b_max = _mm_extract_epi16(v_b, 7);
+        i_a += (a_max <= b_max) * 8;
+        i_b += (a_max >= b_max) * 8;
+    }
+    a += i_a;
+    a_size -= i_a;
+    b += i_b;
+    b_size -= i_b;
+    result += count;
+    return naive_intersection(a, a_size, b, b_size, result);
+}
+
 static bool rset_intersection_array(const rset_t *a, const rset_t *b,
                                     rset_t *result)
 {
     unsigned result_size = MAX(*a->buffer, *b->buffer);
     if (!rset_grow_to(result, result_size))
         return false;
-    uint16_t *array_a = a->buffer + 1;
-    uint16_t *array_b = b->buffer + 1;
-    uint16_t *array_result = result->buffer + 1;
-    const uint16_t* a_end = array_a + *a->buffer;
-    const uint16_t* b_end = array_b + *b->buffer;
-    while (array_a < a_end && array_b < b_end) {
-        if (*array_a < *array_b) {
-            array_a++;
-        } else if (*array_b < *array_a) {
-            array_b++;
-        } else {
-            *array_result++ = *array_a++;
-            array_b++;
-        }
-    }
-    *result->buffer = array_result - result->buffer - 1;
+    const uint16_t *end = \
+        sse_intersection(a->buffer + 1, *a->buffer,
+                         b->buffer + 1, *b->buffer,
+                         result->buffer + 1);
+    *result->buffer = end - result->buffer - 1;
     if (!*result->buffer)
         rset_truncate(result);
     return true;

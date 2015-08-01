@@ -1,4 +1,4 @@
-CFLAGS = -std=c99 -pedantic -Wall -Wextra -march=native -g $(EXTCFLAGS)
+CFLAGS = -std=c99 -pedantic -Wall -Wextra -march=native -msse4.1 -g $(EXTCFLAGS)
 
 rset.o: rset.c rset.h
 tests.o: tests.c rset.h
