@@ -1,15 +1,5 @@
-An incomplete C implementation of Daniel Lemire's [Roaring Bitmaps][paper]:
+An incomplete C implementation of Daniel Lemire (et al)'s [Roaring Bitmaps][paper].
 
-- [x] `new()` / `free()`
-- [x] `import()` / `export()`
-- [x] `copy()`
-- [x] `add()`
-- [x] `truncate()`
-- [x] `cardinality()`
-- [ ] `invert()`
-- [ ] `intersection()`
-- [ ] `union()`
-- [ ] `difference()`
-- [ ] `symmetric_difference()`
+For a complete implementation, see https://github.com/RoaringBitmap/CRoaring
 
 [paper]: http://arxiv.org/pdf/1402.6407v4.pdf
